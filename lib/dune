@@ -1,0 +1,3 @@
+(library
+ (public_name standard_product_3)
+ (name standard_product_3))
