@@ -28,26 +28,6 @@ module Pos_or_vel = struct
 end
 
 
-module Line = struct
-  module Version = struct
-    type t =
-      { version : Version.t
-      ; pos_or_vel : Pos_or_vel.t
-      ; year : int
-      ; month : int
-      ; day_of_month : int
-      ; hour : int
-      ; minute : int
-      ; second : Bigdecimal.t
-      ; number_of_epochs : int
-      ; data_used : string
-      ; coordinate_system : string
-      ; orbit_used : string
-      ; agency : string
-      } [@@deriving sexp]
-  end
-end
-
 module Char = struct
   include Char
 
@@ -156,57 +136,120 @@ module F = struct
   let blank = char ' '
 end
 
-let version_line : Line.Version.t Angstrom.t =
-  let* _ = char '#' in
-  let* version = Version.parse in
-  let* pos_or_vel = Pos_or_vel.parse in
-  let* year = F.i 4 in
-  let* _ = F.blank in
-  let* month = F.i 2 in
-  let* _ = F.blank in
-  let* day_of_month = F.i 2 in
-  let* _ = F.blank in
-  let* hour = F.i 2 in
-  let* _ = F.blank in
-  let* minute = F.i 2 in
-  let* _ = F.blank in
-  let* second = F.f 11 8 in
-  let* _ = F.blank in
-  let* number_of_epochs = F.i 7 in
-  let* _ = F.blank in
-  let* data_used = F.a 5 in
-  let* _ = F.blank in
-  let* coordinate_system = F.a 5 in
-  let* _ = F.blank in
-  let* orbit_used = F.a 3 in
-  let* _ = F.blank in
-  let+ agency = F.a 4 in
-  { Line.Version.
-    version
-  ; pos_or_vel
-  ; year
-  ; month
-  ; day_of_month
-  ; hour
-  ; minute
-  ; second
-  ; number_of_epochs
-  ; data_used
-  ; coordinate_system
-  ; orbit_used
-  ; agency
-  }
+module Line = struct
+  module Version = struct
+    type t =
+      { version : Version.t
+      ; pos_or_vel : Pos_or_vel.t
+      ; year : int
+      ; month : int
+      ; day_of_month : int
+      ; hour : int
+      ; minute : int
+      ; second : Bigdecimal.t
+      ; number_of_epochs : int
+      ; data_used : string
+      ; coordinate_system : string
+      ; orbit_used : string
+      ; agency : string
+      } [@@deriving sexp]
+
+    let parse : t Angstrom.t =
+      let* _ = char '#' in
+      let* version = Version.parse in
+      let* pos_or_vel = Pos_or_vel.parse in
+      let* year = F.i 4 in
+      let* _ = F.blank in
+      let* month = F.i 2 in
+      let* _ = F.blank in
+      let* day_of_month = F.i 2 in
+      let* _ = F.blank in
+      let* hour = F.i 2 in
+      let* _ = F.blank in
+      let* minute = F.i 2 in
+      let* _ = F.blank in
+      let* second = F.f 11 8 in
+      let* _ = F.blank in
+      let* number_of_epochs = F.i 7 in
+      let* _ = F.blank in
+      let* data_used = F.a 5 in
+      let* _ = F.blank in
+      let* coordinate_system = F.a 5 in
+      let* _ = F.blank in
+      let* orbit_used = F.a 3 in
+      let* _ = F.blank in
+      let+ agency = F.a 4 in
+      {  version
+      ; pos_or_vel
+      ; year
+      ; month
+      ; day_of_month
+      ; hour
+      ; minute
+      ; second
+      ; number_of_epochs
+      ; data_used
+      ; coordinate_system
+      ; orbit_used
+      ; agency
+      }
+
+  end
+
+  module Time_info = struct
+    type t =
+      { gps_week : int
+      ; seconds_of_week : Bigdecimal.t
+      ; epoch_interval : Bigdecimal.t
+      ; modified_julian_day : int
+      ; fractional_day : Bigdecimal.t
+      } [@@deriving sexp]
+
+    let parse =
+      let* _ = char '#' in
+      let* _ = char '#' in
+      let* _ = F.blank in
+      let* gps_week = F.i 4 in
+      let* _ = F.blank in
+      let* seconds_of_week = F.f 15 8 in
+      let* _ = F.blank in
+      let* epoch_interval = F.f 14 8 in
+      let* _ = F.blank in
+      let* modified_julian_day = F.i 5 in
+      let* _ = F.blank in
+      let+ fractional_day = F.f 15 13 in
+      { gps_week; seconds_of_week; epoch_interval; modified_julian_day; fractional_day }
+  end
+end
+
+module type Parseable = sig
+  type t [@@deriving sexp]
+
+  val parse : t Angstrom.t
+end
+
+let expect_test_p (module P : Parseable) s =
+  parse_string ~consume:All P.parse s
+  |> [%sexp_of: (P.t, string) result]
+  |> print_s
 
 let%expect_test "Version Line" =
-  parse_string ~consume:All version_line
-    "#dP2025  4 15 18  0  0.00000000     576 ORBIT IGb20 FIT JGX "
-  |> [%sexp_of: (Line.Version.t, string) result]
-  |> print_s;
+  expect_test_p (module Line.Version)
+    "#dP2025  4 15 18  0  0.00000000     576 ORBIT IGb20 FIT JGX ";
   [%expect {|
     (Ok
      ((version D) (pos_or_vel Pos) (year 2025) (month 4) (day_of_month 15)
       (hour 18) (minute 0) (second 0) (number_of_epochs 576) (data_used ORBIT)
       (coordinate_system IGb20) (orbit_used FIT) (agency "JGX ")))
+    |}]
+
+let%expect_test "Time info Line" =
+  expect_test_p (module Line.Time_info)
+    "## 2362 237600.00000000   300.00000000 60780 0.7500000000000";
+  [%expect {|
+    (Ok
+     ((gps_week 2362) (seconds_of_week 237600) (epoch_interval 300)
+      (modified_julian_day 60780) (fractional_day 0.75)))
     |}]
 
 
