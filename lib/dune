@@ -1,3 +1,7 @@
 (library
  (public_name standard_product_3)
- (name standard_product_3))
+ (name standard_product_3)
+ (libraries angstrom core bigdecimal)
+ (preprocess (pps ppx_jane))
+ (inline_tests)
+ )
