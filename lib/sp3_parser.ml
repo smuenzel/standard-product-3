@@ -125,8 +125,12 @@ end
 module F = struct
 
   let i n =
-    let+ v = take n in
-    Int.of_string (String.strip v)
+    let* v = take n in
+    let s = String.strip v in
+    try
+      return (Int.of_string s)
+    with
+    | Failure _ -> fail "not an int"
 
   let i n =
     i n <?> "F.i"
@@ -508,6 +512,104 @@ module Line = struct
   end
 
   module Position_and_clock = struct
+    module Data = struct
+      type t =
+        { x : Bigdecimal.t
+        ; y : Bigdecimal.t
+        ; z : Bigdecimal.t
+        ; clock : Bigdecimal.t
+        ; x_stddev : int
+        ; y_stddev : int
+        ; z_stddev : int
+        ; clock_stddev : int option
+        ; clock_event : bool
+        ; clock_pred : bool
+        ; maneuver : bool
+        ; orbit_pred : bool
+        } [@@deriving sexp]
+    end
+
+    type t =
+      { space_vehicle_id : Space_vehicle_id.t
+      ; data : Data.t option
+      } [@@deriving sexp]
+
+    let parse_prefix = 
+      let* _ = char 'P' in
+      let* space_vehicle_id = Space_vehicle_id.parse in
+      let* x = F.f 14 6 in
+      let* y = F.f 14 6 in
+      let* z = F.f 14 6 in
+      let+ clock = F.f 14 6 in
+      space_vehicle_id, x, y, z, clock
+
+    let parse_stdev =
+      let* x_stddev = F.i 2 in
+      let* _ = F.blank in
+      let* y_stddev = F.i 2 in
+      let* _ = F.blank in
+      let* z_stddev = F.i 2 in
+      let* _ = F.blank in
+      let+ clock_stddev =
+        choice
+          [ F.i 3 >>| Option.some
+          ; count 3 F.blank >>| fun _ -> None
+          ]
+          <?> "clock_stddev"
+      in
+      x_stddev, y_stddev, z_stddev, clock_stddev
+
+    let parse =
+      let* space_vehicle_id, x, y, z, clock = parse_prefix in
+      let* data =
+        if Bigdecimal.is_zero x 
+        && Bigdecimal.is_zero y
+        && Bigdecimal.is_zero z
+        && Bignum.equal (Bignum.truncate (Bigdecimal.to_bignum clock)) (Bignum.of_int 999999)
+        then begin
+          let+ _ = take_while (function | '\n' -> false | _ -> true) in
+          None
+        end
+        else begin
+          let* _ = F.blank in
+          let* x_stddev, y_stddev, z_stddev, clock_stddev = parse_stdev in
+          let* _ = F.blank in
+          let* clock_event =
+            let* c = any_char in
+            match c with
+            | 'E' -> return true
+            | ' ' -> return false
+            | _ -> fail "not an event"
+          in
+          let* clock_pred =
+            let* c = any_char in
+            match c with
+            | 'P' -> return true
+            | ' ' -> return false
+            | _ -> fail "not a prediction"
+          in
+          let* _ = F.blank in
+          let* _ = F.blank in
+          let* maneuver =
+            let* c = any_char in
+            match c with
+            | 'M' -> return true
+            | ' ' -> return false
+            | _ -> fail "not a maneuver"
+          in
+          let+ orbit_pred =
+            let* c = any_char in
+            match c with
+            | 'P' -> return true
+            | ' ' -> return false
+            | _ -> fail "not an orbit prediction"
+          in
+          Some
+            { Data.x; y; z; clock; x_stddev; y_stddev; z_stddev; clock_stddev; clock_event; clock_pred; maneuver; orbit_pred }
+        end
+      in
+      return
+        { space_vehicle_id; data }
 
   end
 
@@ -629,12 +731,44 @@ let%expect_test "Comment" =
     "/* PROGRAM: MADOCA v.2.2.0, DATE: 2025/04/16 19:26:00 UTC                       ";
   [%expect {| (Ok ()) |}]
 
-let%expect_test "Comment" =
+let%expect_test "Epoch" =
   expect_test_p (module Line.Epoch)
     "*  2025  4 15 18  0  0.00000000";
   [%expect {|
     (Ok
      ((year 2025) (month 4) (day_of_month 15) (hour 18) (minute 0) (second 0)))
+    |}]
+
+let%expect_test "Position and clock" =
+  expect_test_p (module Line.Position_and_clock)
+    "PG21      0.000000      0.000000      0.000000 999999.999999                    ";
+  [%expect {| (Ok ((space_vehicle_id ((kind Gps) (prn 21))) (data ()))) |}]
+
+let%expect_test "Position and clock" =
+  expect_test_p (module Line.Position_and_clock)
+    "PG20  22037.667290  -3713.935328  14357.943543    365.018958 14 12 12 407       ";
+  [%expect {|
+    (Ok
+     ((space_vehicle_id ((kind Gps) (prn 20)))
+      (data
+       (((x 22037.66729) (y -3713.935328) (z 14357.943543) (clock 365.018958)
+         (x_stddev 14) (y_stddev 12) (z_stddev 12) (clock_stddev (407))
+         (clock_event false) (clock_pred false) (maneuver false)
+         (orbit_pred false))))))
+    |}]
+
+
+let%expect_test "Position and clock" =
+  expect_test_p (module Line.Position_and_clock)
+    "PE10  20406.922352   9750.415733  19090.538833   -703.665576  9 21 20      P   P";
+  [%expect {|
+    (Ok
+     ((space_vehicle_id ((kind Galileo) (prn 10)))
+      (data
+       (((x 20406.922352) (y 9750.415733) (z 19090.538833) (clock -703.665576)
+         (x_stddev 9) (y_stddev 21) (z_stddev 20) (clock_stddev ())
+         (clock_event false) (clock_pred true) (maneuver false)
+         (orbit_pred true))))))
     |}]
 
 
