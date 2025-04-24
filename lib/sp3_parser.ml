@@ -27,7 +27,6 @@ module Pos_or_vel = struct
     | _ -> fail "not a pos or vel"
 end
 
-
 module Char = struct
   include Char
 
@@ -129,12 +128,70 @@ module F = struct
     let+ v = take n in
     Int.of_string (String.strip v)
 
+  let i n =
+    i n <?> "F.i"
+
   let f w d = Fortran.f_editing ~w ~d
 
   let a n = take n
 
-  let blank = char ' '
+  let a n =
+    a n <?> "F.a"
+
+  let blank = char ' ' <?> "F.blank"
 end
+
+module Space_vehicle_id = struct
+  module Kind = struct
+    type t =
+      | Gps
+      | Glonass
+      | Leo
+      | Sbas
+      | Galileo
+      | Beidou
+      | Irnss
+      | Qzss
+    [@@deriving sexp]
+
+    let parse =
+      let* c = any_char in
+      match c with
+      | 'G' -> return Gps
+      | 'R' -> return Glonass
+      | 'L' -> return Leo
+      | 'S' -> return Sbas
+      | 'E' -> return Galileo
+      | 'C' -> return Beidou
+      | 'I' -> return Irnss
+      | 'J' -> return Qzss
+      | _ -> fail "not a sv"
+
+  end
+
+  type t =
+    { kind : Kind.t
+    ; prn: int
+    } [@@deriving sexp]
+
+  let parse =
+    let* kind = Kind.parse in
+    let* prn_raw = F.i 2 in
+    let prn =
+      match kind with
+      | Qzss -> prn_raw + 192
+      | _ -> prn_raw
+    in
+    return { kind; prn }
+
+  let parse_opt =
+    choice
+      [ string "  0" *> return None
+      ; parse >>| Option.some
+      ]
+end
+
+
 
 module Line = struct
   module Version = struct
@@ -220,6 +277,29 @@ module Line = struct
       let+ fractional_day = F.f 15 13 in
       { gps_week; seconds_of_week; epoch_interval; modified_julian_day; fractional_day }
   end
+
+  module Space_vehicles = struct
+    type t =
+      { number : int option
+      ; ids : Space_vehicle_id.t list
+      } [@@deriving sexp]
+
+    let parse =
+      let* _ = char '+' in
+      let* _ = char ' ' in
+      let* _ = F.blank in
+      let* number =
+        choice
+          [ (let+ _ = count 3 F.blank in None)
+          ; (let+ n = F.i 3 in Some n)
+          ]
+      in
+      let* _ = count 3 F.blank in
+      let+ ids = count 17 Space_vehicle_id.parse_opt in
+      let ids = List.filter_opt ids in
+      { number; ids }
+
+  end
 end
 
 module type Parseable = sig
@@ -250,6 +330,52 @@ let%expect_test "Time info Line" =
     (Ok
      ((gps_week 2362) (seconds_of_week 237600) (epoch_interval 300)
       (modified_julian_day 60780) (fractional_day 0.75)))
+    |}]
+
+let%expect_test "Space vehicles Line" =
+  expect_test_p (module Line.Space_vehicles)
+    "+   76   G02G03G04G05G06G07G08G09G10G11G12G13G14G15G16G17G18";
+  [%expect {|
+    (Ok
+     ((number (76))
+      (ids
+       (((kind Gps) (prn 2)) ((kind Gps) (prn 3)) ((kind Gps) (prn 4))
+        ((kind Gps) (prn 5)) ((kind Gps) (prn 6)) ((kind Gps) (prn 7))
+        ((kind Gps) (prn 8)) ((kind Gps) (prn 9)) ((kind Gps) (prn 10))
+        ((kind Gps) (prn 11)) ((kind Gps) (prn 12)) ((kind Gps) (prn 13))
+        ((kind Gps) (prn 14)) ((kind Gps) (prn 15)) ((kind Gps) (prn 16))
+        ((kind Gps) (prn 17)) ((kind Gps) (prn 18))))))
+    |}]
+
+let%expect_test "Space vehicles Line" =
+  expect_test_p (module Line.Space_vehicles)
+    "+        R04R05R07R08R09R11R12R14R15R16R17R18R19R20R21R22R24";
+  [%expect {|
+    (Ok
+     ((number ())
+      (ids
+       (((kind Glonass) (prn 4)) ((kind Glonass) (prn 5))
+        ((kind Glonass) (prn 7)) ((kind Glonass) (prn 8))
+        ((kind Glonass) (prn 9)) ((kind Glonass) (prn 11))
+        ((kind Glonass) (prn 12)) ((kind Glonass) (prn 14))
+        ((kind Glonass) (prn 15)) ((kind Glonass) (prn 16))
+        ((kind Glonass) (prn 17)) ((kind Glonass) (prn 18))
+        ((kind Glonass) (prn 19)) ((kind Glonass) (prn 20))
+        ((kind Glonass) (prn 21)) ((kind Glonass) (prn 22))
+        ((kind Glonass) (prn 24))))))
+    |}]
+
+let%expect_test "Space vehicles Line" =
+  expect_test_p (module Line.Space_vehicles)
+    "+        E26E27E29E30E31E33E34E36  0  0  0  0  0  0  0  0  0";
+  [%expect {|
+    (Ok
+     ((number ())
+      (ids
+       (((kind Galileo) (prn 26)) ((kind Galileo) (prn 27))
+        ((kind Galileo) (prn 29)) ((kind Galileo) (prn 30))
+        ((kind Galileo) (prn 31)) ((kind Galileo) (prn 33))
+        ((kind Galileo) (prn 34)) ((kind Galileo) (prn 36))))))
     |}]
 
 
