@@ -300,6 +300,23 @@ module Line = struct
       { number; ids }
 
   end
+
+  module Accuracy = struct
+    type t =
+      { accuracy_exponent : int option list
+      } [@@deriving sexp]
+
+    let parse =
+      let* _ = char '+' in
+      let* _ = char '+' in
+      let* _ = count 7 F.blank in
+      let+ accuracy_exponent = count 17 (F.i 3) in
+      let accuracy_exponent =
+        List.map ~f:(function | 0 -> None | x -> Some x) accuracy_exponent
+      in
+      { accuracy_exponent }
+  end
+
 end
 
 module type Parseable = sig
@@ -377,6 +394,25 @@ let%expect_test "Space vehicles Line" =
         ((kind Galileo) (prn 31)) ((kind Galileo) (prn 33))
         ((kind Galileo) (prn 34)) ((kind Galileo) (prn 36))))))
     |}]
+
+let%expect_test "Accuracy" =
+  expect_test_p (module Line.Accuracy)
+    "++         3  2  2  2  2  2  3  2  2  2  2  2  2  2  2  2  2";
+  [%expect {|
+    (Ok
+     ((accuracy_exponent
+       ((3) (2) (2) (2) (2) (2) (3) (2) (2) (2) (2) (2) (2) (2) (2) (2) (2)))))
+    |}]
+
+let%expect_test "Accuracy" =
+  expect_test_p (module Line.Accuracy)
+    "++         2  2  2  3  2  2  3  2  0  0  0  0  0  0  0  0  0";
+  [%expect {|
+    (Ok
+     ((accuracy_exponent
+       ((2) (2) (2) (3) (2) (2) (3) (2) () () () () () () () () ()))))
+    |}]
+
 
 
 (*
