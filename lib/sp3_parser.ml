@@ -191,7 +191,46 @@ module Space_vehicle_id = struct
       ]
 end
 
+module File_type = struct
+  type t =
+    | Mixed
+    | Only of Space_vehicle_id.Kind.t
+  [@@deriving sexp]
 
+  let parse = 
+    choice
+      [ string "M " *> return Mixed
+      ; let* kind = Space_vehicle_id.Kind.parse in
+        let+ _ = F.blank in
+        Only kind
+      ]
+end
+
+module Time_system = struct 
+  type t =
+    | Gps
+    | Glonass
+    | Galileo
+    | Beidou
+    | Tai
+    | Utc
+    | Irnss
+    | Qzss
+  [@@deriving sexp]
+
+  let parse =
+    let* s = take 3 in
+    match s with
+    | "GPS" -> return Gps
+    | "GLO" -> return Glonass
+    | "GAL" -> return Galileo
+    | "BDT" -> return Beidou
+    | "TAI" -> return Tai
+    | "UTC" -> return Utc
+    | "IRN" -> return Irnss
+    | "QZS" -> return Qzss
+    | _ -> fail "not a time system"
+end
 
 module Line = struct
   module Version = struct
@@ -317,6 +356,161 @@ module Line = struct
       { accuracy_exponent }
   end
 
+  module Type_and_time = struct
+    type t =
+      { file_type : File_type.t
+      ; time_system : Time_system.t
+      } [@@deriving sexp]
+
+    let parse =
+      let* _ = char '%' in
+      let* _ = char 'c' in
+      let* _ = F.blank in
+      let* file_type = File_type.parse in
+      let* _ = F.blank in
+      let* _ = count 2 (char 'c') in
+      let* _ = F.blank in
+      let* time_system = Time_system.parse in
+      let remainder =
+        let* _ = F.blank in
+        let* _ = count 3 (char 'c') in
+        let* _ = F.blank in
+        let* _ = count 4 (char 'c') in
+        let* _ = F.blank in
+        let* _ = count 4 (char 'c') in
+        let* _ = F.blank in
+        let* _ = count 4 (char 'c') in
+        let* _ = F.blank in
+        let* _ = count 4 (char 'c') in
+        let* _ = F.blank in
+        let* _ = count 5 (char 'c') in
+        let* _ = F.blank in
+        let* _ = count 5 (char 'c') in
+        let* _ = F.blank in
+        let* _ = count 5 (char 'c') in
+        let* _ = F.blank in
+        let+ _ = count 5 (char 'c') in
+        ()
+      in
+      let remainder = remainder <?> "remainder" in
+      let* () = remainder in
+      let line2 = 
+        let* _ = char '\n' in
+        let* _ = char '%' in
+        let* _ = char 'c' in
+        let* _ = F.blank in
+        let* _ = count 2 (char 'c') in
+        let* _ = F.blank in
+        let* _ = count 2 (char 'c') in
+        let* _ = F.blank in
+        let* _ = count 3 (char 'c') in
+        let+ () = remainder in
+        ()
+      in
+      let line2 = line2 <?> "line2" in
+      let+ () = line2 in
+      { file_type; time_system }
+  end
+
+  module Base = struct
+    type t =
+      { position_velocity : Bigdecimal.t
+      ; clock : Bigdecimal.t
+      } [@@deriving sexp]
+
+    let parse =
+      let* _ = char '%' in
+      let* _ = char 'f' in
+      let* _ = F.blank in
+      let* position_velocity = F.f 10 7 in
+      let* _ = F.blank in
+      let* clock = F.f 12 9 in
+      let* _ = F.blank in
+      let* _ = F.f 14 11 in
+      let* _ = F.blank in
+      let* _ = F.f 18 15 in
+      let* _ = char '\n' in
+      let* _ = char '%' in
+      let* _ = char 'f' in
+      let* _ = F.blank in
+      let* _ = F.f 10 7 in
+      let* _ = F.blank in
+      let* _ = F.f 12 9 in
+      let* _ = F.blank in
+      let* _ = F.f 14 11 in
+      let* _ = F.blank in
+      let+ _ = F.f 18 15 in
+      { position_velocity; clock }
+  end
+
+  module Int_empty = struct
+    type t = unit [@@deriving sexp]
+
+    let parse = 
+      let* _ = char '%' in
+      let* _ = char 'i' in
+      let* _ = F.blank in
+      let* _ = F.i 4 in
+      let* _ = F.blank in
+      let* _ = F.i 4 in
+      let* _ = F.blank in
+      let* _ = F.i 4 in
+      let* _ = F.blank in
+      let* _ = F.i 4 in
+      let* _ = F.blank in
+      let* _ = F.i 6 in
+      let* _ = F.blank in
+      let* _ = F.i 6 in
+      let* _ = F.blank in
+      let* _ = F.i 6 in
+      let* _ = F.blank in
+      let* _ = F.i 6 in
+      let* _ = F.blank in
+      let+ _ = F.i 9 in
+      ()
+  end
+
+  module Comment = struct
+    type t = unit [@@deriving sexp]
+
+    let parse : t Angstrom.t =
+      let* _ = char '/' in
+      let* _ = char '*' in
+      skip_while (function | '\n' -> false | _ -> true)
+  end
+
+  module Epoch = struct
+    type t =
+      { year : int
+      ; month : int
+      ; day_of_month : int
+      ; hour : int
+      ; minute : int
+      ; second : Bigdecimal.t
+      } [@@deriving sexp]
+
+    let parse =
+      let* _ = char '*' in
+      let* _ = char ' ' in
+      let* _ = F.blank in
+      let* year = F.i 4 in
+      let* _ = F.blank in
+      let* month = F.i 2 in
+      let* _ = F.blank in
+      let* day_of_month = F.i 2 in
+      let* _ = F.blank in
+      let* hour = F.i 2 in
+      let* _ = F.blank in
+      let* minute = F.i 2 in
+      let* _ = F.blank in
+      let+ second = F.f 11 8 in
+      { year; month; day_of_month; hour; minute; second }
+  end
+
+  module Position_and_clock = struct
+
+  end
+
 end
 
 module type Parseable = sig
@@ -411,6 +605,36 @@ let%expect_test "Accuracy" =
     (Ok
      ((accuracy_exponent
        ((2) (2) (2) (3) (2) (2) (3) (2) () () () () () () () () ()))))
+    |}]
+
+let%expect_test "Type and time" =
+  expect_test_p (module Line.Type_and_time)
+{|%c G  cc GPS ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc
+%c cc cc ccc ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc|};
+  [%expect {| (Ok ((file_type (Only Gps)) (time_system Gps))) |}]
+
+let%expect_test "Base" =
+  expect_test_p (module Line.Base)
+{|%f  1.2500000  1.025000000  0.00000000000  0.000000000000000
+%f  0.0000000  0.000000000  0.00000000000  0.000000000000000|};
+  [%expect {| (Ok ((position_velocity 1.25) (clock 1.025))) |}]
+
+let%expect_test "Int empty" =
+  expect_test_p (module Line.Int_empty)
+    {|%i    0    0    0    0      0      0      0      0         0|};
+  [%expect {| (Ok ()) |}]
+
+let%expect_test "Comment" =
+  expect_test_p (module Line.Comment)
+    "/* PROGRAM: MADOCA v.2.2.0, DATE: 2025/04/16 19:26:00 UTC                       ";
+  [%expect {| (Ok ()) |}]
+
+let%expect_test "Comment" =
+  expect_test_p (module Line.Epoch)
+    "*  2025  4 15 18  0  0.00000000";
+  [%expect {|
+    (Ok
+     ((year 2025) (month 4) (day_of_month 15) (hour 18) (minute 0) (second 0)))
     |}]
 
 
