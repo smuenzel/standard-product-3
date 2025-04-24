@@ -1,0 +1,4 @@
+(executable
+  (name sp3_tool)
+  (libraries standard_product_3 core core_unix.command_unix)
+  (preprocess (pps ppx_jane)))
