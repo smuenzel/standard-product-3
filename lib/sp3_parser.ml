@@ -1194,6 +1194,7 @@ module Processed_file = struct
     { raw_header : Header.t
     ; space_vehicles : Space_vehicle_id.t array
     ; accuracy : Float_option.Array.t
+    ; epoch_count : int
     ; epochs : Epoch.t list
     ; presence : Presence.t
     } [@@deriving sexp]
@@ -1236,6 +1237,7 @@ module Processed_file = struct
     in
     { raw_header
     ; space_vehicles
+    ; epoch_count = List.length epochs
     ; epochs
     ; accuracy
     ; presence
