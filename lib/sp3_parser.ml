@@ -954,7 +954,7 @@ module Epoch_block = struct
 
 end
 
-module Full_file = struct
+module Header = struct
   type t =
     { version : Line.Version.t
     ; time_info : Line.Time_info.t
@@ -963,7 +963,6 @@ module Full_file = struct
     ; type_and_time : Line.Type_and_time.t
     ; base : Line.Base.t
     ; comments : Line.Comment.t list
-    ; epoch_blocks : (Line.Epoch.t * Line.Position_and_clock.t list) list
     } [@@deriving sexp]
 
   let parse =
@@ -977,12 +976,7 @@ module Full_file = struct
     let* base = F.line Line.Base.parse in
     let* _int_empty = F.line Line.Int_empty.parse in
     let* _int_empty = F.line Line.Int_empty.parse in
-    let* comments = F.lines Line.Comment.parse in
-    let* () = F.eol in
-    let* epoch_blocks = F.lines Epoch_block.parse in
-    let* () = F.eol in
-    let* _eof = string "EOF" in
-    let+ () = F.eol in
+    let+ comments = F.lines Line.Comment.parse in
     { version
     ; time_info
     ; space_vehicles
@@ -990,8 +984,68 @@ module Full_file = struct
     ; type_and_time
     ; base
     ; comments
+    }
+end
+
+module Full_file = struct
+  type t =
+    { header : Header.t
+    ; epoch_blocks : (Line.Epoch.t * Line.Position_and_clock.t list) list
+    } [@@deriving sexp]
+
+  let parse =
+    let* header = F.line Header.parse in
+    let* epoch_blocks = F.lines Epoch_block.parse in
+    let* () = F.eol in
+    let* _eof = string "EOF" in
+    let+ () = F.eol in
+    { header
     ; epoch_blocks
     }
+end
+
+module Processed_file = struct
+  type t =
+    { raw_header : Header.t
+    ; space_vehicles : Space_vehicle_id.t array
+    ; accuracy : Float_option.Array.t
+    ; epoch_blocks : (Line.Epoch.t * Line.Position_and_clock.t list) list
+    } [@@deriving sexp]
+
+  let parse =
+    let* raw_header = F.line Header.parse in
+    let* epoch_blocks = F.lines Epoch_block.parse in
+    let* () = F.eol in
+    let* _eof = string "EOF" in
+    let+ () = F.eol in
+    let space_vehicles =
+      List.concat_map raw_header.space_vehicles ~f:(fun x ->
+          x.ids
+        )
+      |> Array.of_list
+    in
+    let space_vehicle_count = Array.length space_vehicles in
+    let accuracy =
+      List.concat_map
+        raw_header.accuracy
+        ~f:(fun { Line.Accuracy.accuracy_exponent } -> accuracy_exponent)
+      |> Array.of_list
+      |> (fun a -> Array.slice a 0 space_vehicle_count)
+      |> Float_option.Array.of_option_array_map
+        ~f:(fun i ->
+            let p =
+              Int.( ** ) 2 i
+              |> Float.of_int
+            in
+            p /. 1000.0
+          )
+    in
+    { raw_header
+    ; space_vehicles
+    ; epoch_blocks
+    ; accuracy
+    }
+
 end
 
 let%expect_test "Epoch block" =
@@ -1085,74 +1139,81 @@ EOF
   [%expect {|
     ((unconsumed ((buf "") (off 1561) (len 0)))
      (result
-      ((version
-        ((version C) (pos_or_vel Pos) (year 2025) (month 3) (day_of_month 30)
-         (hour 0) (minute 0) (second 0) (number_of_epochs 577)
-         (data_used "d+D  ") (coordinate_system IGb20) (orbit_used EXT)
-         (agency AIUB)))
-       (time_info
-        ((gps_week 2360) (seconds_of_week 0) (epoch_interval 300)
-         (modified_julian_day 60764) (fractional_day 0)))
-       (space_vehicles
-        (((number (80))
-          (ids
-           (((kind Gps) (prn 1)) ((kind Gps) (prn 2)) ((kind Gps) (prn 3))
-            ((kind Gps) (prn 4)) ((kind Gps) (prn 5)) ((kind Gps) (prn 7))
-            ((kind Gps) (prn 8)) ((kind Gps) (prn 9)) ((kind Gps) (prn 10))
-            ((kind Gps) (prn 11)) ((kind Gps) (prn 12)) ((kind Gps) (prn 13))
-            ((kind Gps) (prn 14)) ((kind Gps) (prn 15)) ((kind Gps) (prn 16))
-            ((kind Gps) (prn 17)) ((kind Gps) (prn 18)))))
-         ((number ())
-          (ids
-           (((kind Gps) (prn 19)) ((kind Gps) (prn 20)) ((kind Gps) (prn 21))
-            ((kind Gps) (prn 22)) ((kind Gps) (prn 23)) ((kind Gps) (prn 24))
-            ((kind Gps) (prn 25)) ((kind Gps) (prn 26)) ((kind Gps) (prn 27))
-            ((kind Gps) (prn 28)) ((kind Gps) (prn 29)) ((kind Gps) (prn 30))
-            ((kind Gps) (prn 31)) ((kind Gps) (prn 32)) ((kind Glonass) (prn 1))
-            ((kind Glonass) (prn 2)) ((kind Glonass) (prn 3)))))
-         ((number ())
-          (ids
-           (((kind Glonass) (prn 4)) ((kind Glonass) (prn 5))
-            ((kind Glonass) (prn 7)) ((kind Glonass) (prn 8))
-            ((kind Glonass) (prn 9)) ((kind Glonass) (prn 12))
-            ((kind Glonass) (prn 14)) ((kind Glonass) (prn 15))
-            ((kind Glonass) (prn 16)) ((kind Glonass) (prn 17))
-            ((kind Glonass) (prn 18)) ((kind Glonass) (prn 19))
-            ((kind Glonass) (prn 20)) ((kind Glonass) (prn 21))
-            ((kind Glonass) (prn 22)) ((kind Glonass) (prn 24))
-            ((kind Glonass) (prn 26)))))
-         ((number ())
-          (ids
-           (((kind Galileo) (prn 2)) ((kind Galileo) (prn 3))
-            ((kind Galileo) (prn 4)) ((kind Galileo) (prn 5))
-            ((kind Galileo) (prn 6)) ((kind Galileo) (prn 7))
-            ((kind Galileo) (prn 8)) ((kind Galileo) (prn 9))
-            ((kind Galileo) (prn 10)) ((kind Galileo) (prn 11))
-            ((kind Galileo) (prn 12)) ((kind Galileo) (prn 13))
-            ((kind Galileo) (prn 14)) ((kind Galileo) (prn 15))
-            ((kind Galileo) (prn 16)) ((kind Galileo) (prn 18))
-            ((kind Galileo) (prn 19)))))
-         ((number ())
-          (ids
-           (((kind Galileo) (prn 21)) ((kind Galileo) (prn 23))
-            ((kind Galileo) (prn 24)) ((kind Galileo) (prn 25))
-            ((kind Galileo) (prn 26)) ((kind Galileo) (prn 27))
-            ((kind Galileo) (prn 29)) ((kind Galileo) (prn 30))
-            ((kind Galileo) (prn 31)) ((kind Galileo) (prn 33))
-            ((kind Galileo) (prn 34)) ((kind Galileo) (prn 36)))))))
-       (accuracy
-        (((accuracy_exponent
-           ((6) (8) (8) (5) (7) (7) (6) (5) (6) (7) (7) (7) (6) (7) (7) (7) (8))))
-         ((accuracy_exponent
-           ((7) (7) (6) (7) (7) (6) (5) (7) (6) (6) (7) (6) (7) (6) (7) (7) (7))))
-         ((accuracy_exponent
-           ((7) (7) (7) (7) (7) (8) (8) (9) (8) (8) (7) (9) (9) (8) (6) (8) (7))))
-         ((accuracy_exponent
-           ((7) (6) (6) (5) (5) (6) (6) (6) (6) (6) (7) (8) (7) (8) (7) (6) (7))))
-         ((accuracy_exponent
-           ((7) (6) (7) (7) (7) (6) (7) (7) (7) (7) (7) (7) () () () () ())))))
-       (type_and_time ((file_type Mixed) (time_system Gps)))
-       (base ((position_velocity 1.25) (clock 1.025))) (comments (() () () ()))
+      ((header
+        ((version
+          ((version C) (pos_or_vel Pos) (year 2025) (month 3) (day_of_month 30)
+           (hour 0) (minute 0) (second 0) (number_of_epochs 577)
+           (data_used "d+D  ") (coordinate_system IGb20) (orbit_used EXT)
+           (agency AIUB)))
+         (time_info
+          ((gps_week 2360) (seconds_of_week 0) (epoch_interval 300)
+           (modified_julian_day 60764) (fractional_day 0)))
+         (space_vehicles
+          (((number (80))
+            (ids
+             (((kind Gps) (prn 1)) ((kind Gps) (prn 2)) ((kind Gps) (prn 3))
+              ((kind Gps) (prn 4)) ((kind Gps) (prn 5)) ((kind Gps) (prn 7))
+              ((kind Gps) (prn 8)) ((kind Gps) (prn 9)) ((kind Gps) (prn 10))
+              ((kind Gps) (prn 11)) ((kind Gps) (prn 12)) ((kind Gps) (prn 13))
+              ((kind Gps) (prn 14)) ((kind Gps) (prn 15)) ((kind Gps) (prn 16))
+              ((kind Gps) (prn 17)) ((kind Gps) (prn 18)))))
+           ((number ())
+            (ids
+             (((kind Gps) (prn 19)) ((kind Gps) (prn 20)) ((kind Gps) (prn 21))
+              ((kind Gps) (prn 22)) ((kind Gps) (prn 23)) ((kind Gps) (prn 24))
+              ((kind Gps) (prn 25)) ((kind Gps) (prn 26)) ((kind Gps) (prn 27))
+              ((kind Gps) (prn 28)) ((kind Gps) (prn 29)) ((kind Gps) (prn 30))
+              ((kind Gps) (prn 31)) ((kind Gps) (prn 32))
+              ((kind Glonass) (prn 1)) ((kind Glonass) (prn 2))
+              ((kind Glonass) (prn 3)))))
+           ((number ())
+            (ids
+             (((kind Glonass) (prn 4)) ((kind Glonass) (prn 5))
+              ((kind Glonass) (prn 7)) ((kind Glonass) (prn 8))
+              ((kind Glonass) (prn 9)) ((kind Glonass) (prn 12))
+              ((kind Glonass) (prn 14)) ((kind Glonass) (prn 15))
+              ((kind Glonass) (prn 16)) ((kind Glonass) (prn 17))
+              ((kind Glonass) (prn 18)) ((kind Glonass) (prn 19))
+              ((kind Glonass) (prn 20)) ((kind Glonass) (prn 21))
+              ((kind Glonass) (prn 22)) ((kind Glonass) (prn 24))
+              ((kind Glonass) (prn 26)))))
+           ((number ())
+            (ids
+             (((kind Galileo) (prn 2)) ((kind Galileo) (prn 3))
+              ((kind Galileo) (prn 4)) ((kind Galileo) (prn 5))
+              ((kind Galileo) (prn 6)) ((kind Galileo) (prn 7))
+              ((kind Galileo) (prn 8)) ((kind Galileo) (prn 9))
+              ((kind Galileo) (prn 10)) ((kind Galileo) (prn 11))
+              ((kind Galileo) (prn 12)) ((kind Galileo) (prn 13))
+              ((kind Galileo) (prn 14)) ((kind Galileo) (prn 15))
+              ((kind Galileo) (prn 16)) ((kind Galileo) (prn 18))
+              ((kind Galileo) (prn 19)))))
+           ((number ())
+            (ids
+             (((kind Galileo) (prn 21)) ((kind Galileo) (prn 23))
+              ((kind Galileo) (prn 24)) ((kind Galileo) (prn 25))
+              ((kind Galileo) (prn 26)) ((kind Galileo) (prn 27))
+              ((kind Galileo) (prn 29)) ((kind Galileo) (prn 30))
+              ((kind Galileo) (prn 31)) ((kind Galileo) (prn 33))
+              ((kind Galileo) (prn 34)) ((kind Galileo) (prn 36)))))))
+         (accuracy
+          (((accuracy_exponent
+             ((6) (8) (8) (5) (7) (7) (6) (5) (6) (7) (7) (7) (6) (7) (7)
+              (7) (8))))
+           ((accuracy_exponent
+             ((7) (7) (6) (7) (7) (6) (5) (7) (6) (6) (7) (6) (7) (6) (7)
+              (7) (7))))
+           ((accuracy_exponent
+             ((7) (7) (7) (7) (7) (8) (8) (9) (8) (8) (7) (9) (9) (8) (6)
+              (8) (7))))
+           ((accuracy_exponent
+             ((7) (6) (6) (5) (5) (6) (6) (6) (6) (6) (7) (8) (7) (8) (7)
+              (6) (7))))
+           ((accuracy_exponent
+             ((7) (6) (7) (7) (7) (6) (7) (7) (7) (7) (7) (7) () () () () ())))))
+         (type_and_time ((file_type Mixed) (time_system Gps)))
+         (base ((position_velocity 1.25) (clock 1.025)))
+         (comments (() () () ()))))
        (epoch_blocks
         ((((year 2025) (month 3) (day_of_month 30) (hour 0) (minute 0)
            (second 0))
