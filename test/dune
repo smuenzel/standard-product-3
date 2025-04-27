@@ -1,2 +1,6 @@
-(test
- (name test_standard_product_3))
+(library
+ (name test_standard_product_3)
+ (libraries standard_product_3)
+ (preprocess (pps ppx_jane))
+ (inline_tests)
+ )
