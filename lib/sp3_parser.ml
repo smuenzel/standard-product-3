@@ -597,6 +597,9 @@ module Line = struct
     let parse = parse <?> "epoch"
   end
 
+  let clock_is_none clock =
+    Bignum.equal (Bignum.truncate (Bigdecimal.to_bignum clock)) (Bignum.of_int 999999)
+
   module Position_and_clock = struct
     module Data = struct
       type t =
@@ -619,9 +622,6 @@ module Line = struct
       { space_vehicle_id : Space_vehicle_id.t
       ; data : Data.t option
       } [@@deriving sexp]
-
-    let clock_is_none clock =
-      Bignum.equal (Bignum.truncate (Bigdecimal.to_bignum clock)) (Bignum.of_int 999999)
 
     let parse_prefix = 
       let* _ = char 'P' in
@@ -746,6 +746,57 @@ module Line = struct
     let parse = parse <?> "Position_and_clock"
   end
 
+  module Velocity = struct
+    module Data = struct
+      type t =
+        { x : Bigdecimal.t
+        ; y : Bigdecimal.t
+        ; z : Bigdecimal.t
+        ; clock : Bigdecimal.t option
+        ; x_stddev : int option
+        ; y_stddev : int option
+        ; z_stddev : int option
+        ; clock_stddev : int option
+        } [@@deriving sexp]
+
+      let parse =
+        let* x = F.f 14 6 in
+        let* y = F.f 14 6 in
+        let* z = F.f 14 6 in
+        let* clock = F.f 14 6 in
+        let* () = F.blank in
+        let* x_stddev = F.i_opt 2 in
+        let* () = F.blank in
+        let* y_stddev = F.i_opt 2 in
+        let* () = F.blank in
+        let* z_stddev = F.i_opt 2 in
+        let* () = F.blank in
+        let* clock_stddev = F.i_opt 3 in
+        let+ () = skip_while Char.is_blank in
+        let clock = if clock_is_none clock then None else Some clock in
+        { x
+        ; y
+        ; z
+        ; clock
+        ; x_stddev
+        ; y_stddev
+        ; z_stddev
+        ; clock_stddev
+        }
+    end
+
+    type t =
+      { space_vehicle_id : Space_vehicle_id.t
+      ; data : Data.t
+      } [@@deriving sexp]
+
+    let parse = 
+      let* _ = char 'V' in
+      let* space_vehicle_id = Space_vehicle_id.parse in
+      let+ data = Data.parse in
+      { space_vehicle_id; data }
+  end
+
 end
 
 module type Parseable = sig
@@ -756,12 +807,22 @@ end
 
 module Epoch_block = struct
   type t =
-    Line.Epoch.t * Line.Position_and_clock.t list
+    Line.Epoch.t * (Line.Position_and_clock.t * Line.Velocity.t option) list
   [@@deriving sexp]
+
+  let with_velocity =
+    let* pos_and_clock = Line.Position_and_clock.parse in
+    let velocity =
+      let* () = F.eol in
+      let+ velocity = Line.Velocity.parse in
+      Some velocity
+    in
+    let+ velocity = option None velocity in
+    pos_and_clock, velocity
 
   let parse =
     let* epoch_header = F.line Line.Epoch.parse in
-    let+ records = F.lines Line.Position_and_clock.parse in
+    let+ records = F.lines with_velocity in
     epoch_header, records
 
 end
@@ -802,7 +863,7 @@ end
 module Full_file = struct
   type t =
     { header : Header.t
-    ; epoch_blocks : (Line.Epoch.t * Line.Position_and_clock.t list) list
+    ; epoch_blocks : (Line.Epoch.t * (Line.Position_and_clock.t * Line.Velocity.t option) list) list
     } [@@deriving sexp]
 
   let parse =
@@ -858,7 +919,7 @@ module Processed_file = struct
         ~(presence : Presence.t)
         ~(base : Line.Base.t)
         ~(space_vehicles : Space_vehicle_id.t array)
-        (epoch_block : Line.Epoch.t * Line.Position_and_clock.t list)
+        (epoch_block : Line.Epoch.t * (Line.Position_and_clock.t * Line.Velocity.t option) list)
       =
       let metadata, records = epoch_block in
       let len = Array.length space_vehicles in
@@ -904,7 +965,7 @@ module Processed_file = struct
       let processed =
         List.foldi ~init:0
           records
-          ~f:(fun i processed record ->
+          ~f:(fun i processed (record, _velocity) ->
               let space_vehicle = space_vehicles.(i) in
               if not (Space_vehicle_id.equal space_vehicle record.space_vehicle_id)
               then begin

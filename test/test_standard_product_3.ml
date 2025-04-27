@@ -277,6 +277,18 @@ PG03   7117.316147  20056.052947 -16137.962133    681.020785|};
            (maneuver false) (orbit_pred false))))))))
     |}]
 
+let%expect_test "Position and clock" =
+  expect_test_p (module Line.Velocity)
+"VG18  17326.494425  16653.192208  16121.344746 999999.999999                    ";
+  [%expect {|
+    (Ok
+     ((space_vehicle_id ((kind Gps) (prn 18)))
+      (data
+       ((x 17326.494425) (y 16653.192208) (z 16121.344746) (clock ())
+        (x_stddev ()) (y_stddev ()) (z_stddev ()) (clock_stddev ())))))
+    |}]
+
+
 let%expect_test "Epoch block" =
   expect_test_f (module Epoch_block)
 {|*  2025  3 30  0  0  0.00000000
@@ -287,24 +299,27 @@ PG03   7117.316147  20056.052947 -16137.962133    681.020785|};
     ((unconsumed ((buf "") (off 214) (len 0)))
      (result
       (((year 2025) (month 3) (day_of_month 30) (hour 0) (minute 0) (second 0))
-       (((space_vehicle_id ((kind Gps) (prn 1)))
-         (data
-          (((x -1103.209931) (y 15790.801024) (z -21325.471767)
-            (clock (198.406633)) (x_stddev ()) (y_stddev ()) (z_stddev ())
-            (clock_stddev ()) (clock_event false) (clock_pred false)
-            (maneuver false) (orbit_pred false)))))
-        ((space_vehicle_id ((kind Gps) (prn 2)))
-         (data
-          (((x -10450.357472) (y 17370.707261) (z -16482.947527)
-            (clock (-207.393848)) (x_stddev ()) (y_stddev ()) (z_stddev ())
-            (clock_stddev ()) (clock_event false) (clock_pred false)
-            (maneuver false) (orbit_pred false)))))
-        ((space_vehicle_id ((kind Gps) (prn 3)))
-         (data
-          (((x 7117.316147) (y 20056.052947) (z -16137.962133)
-            (clock (681.020785)) (x_stddev ()) (y_stddev ()) (z_stddev ())
-            (clock_stddev ()) (clock_event false) (clock_pred false)
-            (maneuver false) (orbit_pred false)))))))))
+       ((((space_vehicle_id ((kind Gps) (prn 1)))
+          (data
+           (((x -1103.209931) (y 15790.801024) (z -21325.471767)
+             (clock (198.406633)) (x_stddev ()) (y_stddev ()) (z_stddev ())
+             (clock_stddev ()) (clock_event false) (clock_pred false)
+             (maneuver false) (orbit_pred false)))))
+         ())
+        (((space_vehicle_id ((kind Gps) (prn 2)))
+          (data
+           (((x -10450.357472) (y 17370.707261) (z -16482.947527)
+             (clock (-207.393848)) (x_stddev ()) (y_stddev ()) (z_stddev ())
+             (clock_stddev ()) (clock_event false) (clock_pred false)
+             (maneuver false) (orbit_pred false)))))
+         ())
+        (((space_vehicle_id ((kind Gps) (prn 3)))
+          (data
+           (((x 7117.316147) (y 20056.052947) (z -16137.962133)
+             (clock (681.020785)) (x_stddev ()) (y_stddev ()) (z_stddev ())
+             (clock_stddev ()) (clock_event false) (clock_pred false)
+             (maneuver false) (orbit_pred false)))))
+         ())))))
     |}]
 
 let%expect_test "Full file" =
@@ -418,24 +433,27 @@ EOF
        (epoch_blocks
         ((((year 2025) (month 3) (day_of_month 30) (hour 0) (minute 0)
            (second 0))
-          (((space_vehicle_id ((kind Gps) (prn 1)))
-            (data
-             (((x -1103.209931) (y 15790.801024) (z -21325.471767)
-               (clock (198.406633)) (x_stddev ()) (y_stddev ()) (z_stddev ())
-               (clock_stddev ()) (clock_event false) (clock_pred false)
-               (maneuver false) (orbit_pred false)))))
-           ((space_vehicle_id ((kind Gps) (prn 2)))
-            (data
-             (((x -10450.357472) (y 17370.707261) (z -16482.947527)
-               (clock (-207.393848)) (x_stddev ()) (y_stddev ()) (z_stddev ())
-               (clock_stddev ()) (clock_event false) (clock_pred false)
-               (maneuver false) (orbit_pred false)))))
-           ((space_vehicle_id ((kind Gps) (prn 3)))
-            (data
-             (((x 7117.316147) (y 20056.052947) (z -16137.962133)
-               (clock (681.020785)) (x_stddev ()) (y_stddev ()) (z_stddev ())
-               (clock_stddev ()) (clock_event false) (clock_pred false)
-               (maneuver false) (orbit_pred false))))))))))))
+          ((((space_vehicle_id ((kind Gps) (prn 1)))
+             (data
+              (((x -1103.209931) (y 15790.801024) (z -21325.471767)
+                (clock (198.406633)) (x_stddev ()) (y_stddev ()) (z_stddev ())
+                (clock_stddev ()) (clock_event false) (clock_pred false)
+                (maneuver false) (orbit_pred false)))))
+            ())
+           (((space_vehicle_id ((kind Gps) (prn 2)))
+             (data
+              (((x -10450.357472) (y 17370.707261) (z -16482.947527)
+                (clock (-207.393848)) (x_stddev ()) (y_stddev ()) (z_stddev ())
+                (clock_stddev ()) (clock_event false) (clock_pred false)
+                (maneuver false) (orbit_pred false)))))
+            ())
+           (((space_vehicle_id ((kind Gps) (prn 3)))
+             (data
+              (((x 7117.316147) (y 20056.052947) (z -16137.962133)
+                (clock (681.020785)) (x_stddev ()) (y_stddev ()) (z_stddev ())
+                (clock_stddev ()) (clock_event false) (clock_pred false)
+                (maneuver false) (orbit_pred false)))))
+            ()))))))))
     |}]
 
 let%expect_test "Processed file" =
