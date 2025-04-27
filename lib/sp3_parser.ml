@@ -4,6 +4,32 @@ open! Util
 
 (* Reference: https://files.igs.org/pub/data/format/sp3d.pdf *)
 
+module Bitset = struct
+  include Bitset
+
+  let create_full ~len =
+    let result = create ~len in
+    set_all result;
+    result
+
+  let sexp_of_t t =
+    if Bitset.is_empty t
+    then Sexp.List [ Atom "Empty"; Int.sexp_of_t (Bitset.capacity t) ]
+    else if Bitset.is_empty (Bitset.complement t)
+    then Sexp.List [ Atom "Full"; Int.sexp_of_t (Bitset.capacity t) ]
+    else sexp_of_t t
+
+  let t_of_sexp sexp =
+    match (sexp : Sexp.t) with
+    | List [ Atom "Empty"; len ] -> 
+      let len = [%of_sexp: int] len in
+      create ~len
+    | List [ Atom "Full"; len ] -> 
+      let len = [%of_sexp: int] len in
+      create_full ~len
+    | _ -> t_of_sexp sexp
+end
+
 module Version = struct
   type t =
     | C
@@ -772,6 +798,26 @@ module Full_file = struct
 end
 
 module Processed_file = struct
+  module Presence = struct
+    type t =
+      { pos : Bitset.t
+      ; clock : Bitset.t
+      ; pos_stddev : Bitset.t
+      ; clock_stddev : Bitset.t
+      ; maneuver : Bitset.t
+      ; clock_event : Bitset.t
+      } [@@deriving sexp]
+
+    let create len =
+      { pos = Bitset.create_full ~len
+      ; clock = Bitset.create_full ~len
+      ; pos_stddev = Bitset.create_full ~len
+      ; clock_stddev = Bitset.create_full ~len
+      ; maneuver = Bitset.create ~len
+      ; clock_event = Bitset.create ~len
+      }
+  end
+
   module Epoch = struct
     type t =
       { metadata : Line.Epoch.t
@@ -783,9 +829,14 @@ module Processed_file = struct
       ; y_stddev : Float_option.Array.t
       ; z_stddev : Float_option.Array.t
       ; clock_stddev : Float_option.Array.t
+      ; maneuver : Bitset.t
+      ; orbit_pred : Bitset.t
+      ; clock_event : Bitset.t
+      ; clock_pred : Bitset.t
       } [@@deriving sexp]
 
     let of_epoch_block
+        ~(presence : Presence.t)
         ~(base : Line.Base.t)
         ~(space_vehicles : Space_vehicle_id.t array)
         (epoch_block : Line.Epoch.t * Line.Position_and_clock.t list)
@@ -802,6 +853,10 @@ module Processed_file = struct
         ; y_stddev = Float_option.Array.create len
         ; z_stddev = Float_option.Array.create len
         ; clock_stddev = Float_option.Array.create len
+        ; maneuver = Bitset.create ~len
+        ; orbit_pred = Bitset.create ~len
+        ; clock_event = Bitset.create ~len
+        ; clock_pred = Bitset.create ~len
         }
       in
       let convert_pos (b : Bigdecimal.t) =
@@ -846,14 +901,19 @@ module Processed_file = struct
               let none = Float_option.none in
               let x, y, z, clock, x_stddev, y_stddev, z_stddev, clock_stddev =
                 match record.data with
-                | None -> none, none, none, none, none, none, none, none
+                | None ->
+                  Bitset.assign presence.pos i false;
+                  Bitset.assign presence.clock i false;
+                  none, none, none, none, none, none, none, none
                 | Some data ->
                   let x = convert_pos data.x in
                   let y = convert_pos data.y in
                   let z = convert_pos data.z in
                   let clock =
                     match data.clock with
-                    | None -> none
+                    | None ->
+                      Bitset.assign presence.clock i false;
+                      none
                     | Some clock ->
                       Bigdecimal.scale_by ~power_of_ten:(-6) clock
                       |> Bigdecimal.to_float
@@ -862,7 +922,23 @@ module Processed_file = struct
                   let x_stddev = convert_pos_stddev data.x_stddev in
                   let y_stddev = convert_pos_stddev data.y_stddev in
                   let z_stddev = convert_pos_stddev data.z_stddev in
+                  begin match%optional.Float_option x_stddev, y_stddev, z_stddev with
+                    | Some _, Some _, Some _ -> ()
+                    | _ -> Bitset.assign presence.pos_stddev i false
+                  end;
                   let clock_stddev = convert_clock_stddev data.clock_stddev in
+                  begin match%optional.Float_option clock_stddev with
+                    | Some _ -> ()
+                    | _ -> Bitset.assign presence.clock_stddev i false
+                  end;
+                  Bitset.assign result.maneuver i data.maneuver;
+                  if data.maneuver
+                  then Bitset.assign presence.maneuver i true;
+                  Bitset.assign result.orbit_pred i data.orbit_pred;
+                  Bitset.assign result.clock_event i data.clock_event;
+                  if data.clock_event
+                  then Bitset.assign presence.clock_event i true;
+                  Bitset.assign result.clock_pred i data.clock_pred;
                   x, y, z, clock, x_stddev, y_stddev, z_stddev, clock_stddev
               in
               Float_option.Array.unsafe_set result.x i x;
@@ -892,6 +968,7 @@ module Processed_file = struct
     ; space_vehicles : Space_vehicle_id.t array
     ; accuracy : Float_option.Array.t
     ; epochs : Epoch.t list
+    ; presence : Presence.t
     } [@@deriving sexp]
 
   let parse =
@@ -907,6 +984,7 @@ module Processed_file = struct
       |> Array.of_list
     in
     let space_vehicle_count = Array.length space_vehicles in
+    let presence = Presence.create space_vehicle_count in
     let accuracy =
       List.concat_map
         raw_header.accuracy
@@ -925,12 +1003,13 @@ module Processed_file = struct
     let epochs =
       List.map
         epoch_blocks
-        ~f:(Epoch.of_epoch_block ~base:raw_header.base ~space_vehicles)
+        ~f:(Epoch.of_epoch_block ~presence ~base:raw_header.base ~space_vehicles)
     in
     { raw_header
     ; space_vehicles
     ; epochs
     ; accuracy
+    ; presence
     }
 
 end

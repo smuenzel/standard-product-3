@@ -1,7 +1,7 @@
 (library
  (public_name standard_product_3)
  (name standard_product_3)
- (libraries angstrom core core_unix.bigstring_unix bigdecimal float_option decompress.gz)
+ (libraries angstrom core core_unix.bigstring_unix bigdecimal float_option decompress.gz bitset)
  (preprocess (pps ppx_jane))
  (inline_tests)
  )
