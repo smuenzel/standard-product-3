@@ -7,9 +7,9 @@ let command =
       let filename = anon ("FILENAME" %: string)
       in
       fun () ->
-        let result = Standard_product_3.Sp3.parse_file filename in
+        let result = Standard_product_3.Sp3.process_file filename in
         result
-        |> [%sexp_of : (Standard_product_3.Sp3_parser.Full_file.t, string) Result.t]
+        |> [%sexp_of : (Standard_product_3.Sp3_parser.Processed_file.t, string) Result.t]
         |> print_s
     ]
 

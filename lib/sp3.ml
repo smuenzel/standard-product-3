@@ -8,3 +8,7 @@ let map_file filename =
 let parse_file filename =
   let bs = map_file filename in
   Angstrom.parse_bigstring ~consume:All Sp3_parser.Full_file.parse bs
+
+let process_file filename =
+  let bs = map_file filename in
+  Angstrom.parse_bigstring ~consume:All Sp3_parser.Processed_file.parse bs
