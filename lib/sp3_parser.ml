@@ -191,7 +191,13 @@ module F = struct
   let a n =
     a n <?> "F.a"
 
-  let eol = let+ _ = char '\n' <?> "F.eol" in ()
+  let eol =
+    let* () = skip_while Char.is_blank in
+    let+ _ = char '\n' in
+    ()
+
+  let eol = 
+    eol <?> "F.eol"
 
   let line p =
     let* p = p in
@@ -202,7 +208,7 @@ module F = struct
     line p <?> "F.line"
 
   let lines p =
-    let+ l = sep_by1 eol p in
+    let+ l = sep_by eol p in
     l
 
   let lines p =
@@ -469,7 +475,7 @@ module Line = struct
       let remainder = remainder <?> "remainder" in
       let* () = remainder in
       let line2 = 
-        let* _ = char '\n' in
+        let* _ = F.eol in
         let* _ = char '%' in
         let* _ = char 'c' in
         let* _ = F.blank in
@@ -505,7 +511,7 @@ module Line = struct
       let* _ = F.f 14 11 in
       let* _ = F.blank in
       let* _ = F.f 18 15 in
-      let* _ = char '\n' in
+      let* _ = F.eol in
       let* _ = char '%' in
       let* _ = char 'f' in
       let* _ = F.blank in
@@ -802,7 +808,7 @@ module Full_file = struct
   let parse =
     let* header = F.line Header.parse in
     let* epoch_blocks = F.lines Epoch_block.parse in
-    let* () = F.eol in
+    let* () = if List.is_empty epoch_blocks then Angstrom.return () else F.eol in
     let* _eof = string "EOF" in
     let+ () = F.eol in
     { header
@@ -987,7 +993,7 @@ module Processed_file = struct
   let parse =
     let* raw_header = F.line Header.parse in
     let* epoch_blocks = F.lines Epoch_block.parse in
-    let* () = F.eol in
+    let* () =  if List.is_empty epoch_blocks then Angstrom.return () else F.eol in
     let* _eof = string "EOF" in
     let+ () = F.eol in
     let space_vehicles =
