@@ -892,6 +892,10 @@ module Processed_file = struct
       ; clock_stddev : Bitset.t
       ; maneuver : Bitset.t
       ; clock_event : Bitset.t
+      ; velocity : Bitset.t
+      ; clock_velocity : Bitset.t
+      ; velocity_stddev : Bitset.t
+      ; clock_velocity_stddev : Bitset.t
       } [@@deriving sexp]
 
     let create len =
@@ -901,10 +905,27 @@ module Processed_file = struct
       ; clock_stddev = Bitset.create_full ~len
       ; maneuver = Bitset.create ~len
       ; clock_event = Bitset.create ~len
+      ; velocity = Bitset.create_full ~len
+      ; clock_velocity = Bitset.create_full ~len
+      ; velocity_stddev = Bitset.create_full ~len
+      ; clock_velocity_stddev = Bitset.create_full ~len
       }
   end
 
   module Epoch = struct
+    module Velocity = struct
+      type t =
+        { x : Float_option.Array.t
+        ; y : Float_option.Array.t
+        ; z : Float_option.Array.t
+        ; clock : Float_option.Array.t
+        ; x_stddev : Float_option.Array.t
+        ; y_stddev : Float_option.Array.t
+        ; z_stddev : Float_option.Array.t
+        ; clock_stddev : Float_option.Array.t
+        } [@@deriving sexp]
+    end
+
     type t =
       { metadata : Line.Epoch.t
       ; x : Float_option.Array.t
@@ -919,6 +940,7 @@ module Processed_file = struct
       ; orbit_pred : Bitset.t
       ; clock_event : Bitset.t
       ; clock_pred : Bitset.t
+      ; velocity : Velocity.t option
       } [@@deriving sexp]
 
     let of_epoch_block
@@ -929,6 +951,22 @@ module Processed_file = struct
       =
       let metadata, records = epoch_block in
       let len = Array.length space_vehicles in
+      let velocity = 
+        match records with
+        | [] -> None
+        | (_, (None)) :: _ -> None
+        | (_, (Some _)) :: _ ->
+          Some
+            { Velocity.x = Float_option.Array.create len
+            ; y = Float_option.Array.create len
+            ; z = Float_option.Array.create len
+            ; clock = Float_option.Array.create len
+            ; x_stddev = Float_option.Array.create len
+            ; y_stddev = Float_option.Array.create len
+            ; z_stddev = Float_option.Array.create len
+            ; clock_stddev = Float_option.Array.create len
+            }
+      in
       let result =
         { metadata
         ; x = Float_option.Array.create len
@@ -943,6 +981,7 @@ module Processed_file = struct
         ; orbit_pred = Bitset.create ~len
         ; clock_event = Bitset.create ~len
         ; clock_pred = Bitset.create ~len
+        ; velocity
         }
       in
       let convert_pos (b : Bigdecimal.t) =
@@ -968,10 +1007,41 @@ module Processed_file = struct
           |> Bigdecimal.to_float
           |> Float_option.some
       in
+      let convert_velocity (b : Bigdecimal.t) =
+        Bigdecimal.scale_by ~power_of_ten:(-1) b
+        |> Bigdecimal.to_float
+        |> Float_option.some
+      in
+      let convert_clock_velocity (b : Bigdecimal.t option) =
+        match b with
+        | None -> Float_option.none
+        | Some b ->
+          Bigdecimal.scale_by ~power_of_ten:(-10) b
+          |> Bigdecimal.to_float
+          |> Float_option.some
+      in
+      let convert_velocity_stddev (s : int option) =
+        match s with
+        | None -> Float_option.none
+        | Some exponent ->
+          Bigdecimal.( ** ) base.position_velocity exponent
+          |> Bigdecimal.scale_by ~power_of_ten:(-7)
+          |> Bigdecimal.to_float
+          |> Float_option.some
+      in
+      let convert_clock_velocity_stddev (s : int option) =
+        match s with
+        | None -> Float_option.none
+        | Some exponent ->
+          Bigdecimal.( ** ) base.clock exponent
+          |> Bigdecimal.scale_by ~power_of_ten:(-16)
+          |> Bigdecimal.to_float
+          |> Float_option.some
+      in
       let processed =
         List.foldi ~init:0
           records
-          ~f:(fun i processed (record, _velocity) ->
+          ~f:(fun i processed (record, record_velocity) ->
               let space_vehicle = space_vehicles.(i) in
               if not (Space_vehicle_id.equal space_vehicle record.space_vehicle_id)
               then begin
@@ -1035,6 +1105,41 @@ module Processed_file = struct
               Float_option.Array.unsafe_set result.y_stddev i y_stddev;
               Float_option.Array.unsafe_set result.z_stddev i z_stddev;
               Float_option.Array.unsafe_set result.clock_stddev i clock_stddev;
+              begin match velocity, record_velocity with
+                | None, None ->
+                  Bitset.assign presence.velocity i false;
+                  Bitset.assign presence.clock_velocity i false
+                | Some velocity, Some record_velocity ->
+                  Float_option.Array.unsafe_set velocity.x i (convert_velocity record_velocity.data.x);
+                  Float_option.Array.unsafe_set velocity.y i (convert_velocity record_velocity.data.y);
+                  Float_option.Array.unsafe_set velocity.z i (convert_velocity record_velocity.data.z);
+                  Float_option.Array.unsafe_set velocity.clock i (convert_clock_velocity record_velocity.data.clock);
+                  if Option.is_none record_velocity.data.clock
+                  then Bitset.assign presence.clock_velocity i false;
+                  Float_option.Array.unsafe_set velocity.x_stddev i (convert_velocity_stddev record_velocity.data.x_stddev);
+                  Float_option.Array.unsafe_set velocity.y_stddev i (convert_velocity_stddev record_velocity.data.y_stddev);
+                  Float_option.Array.unsafe_set velocity.z_stddev i (convert_velocity_stddev record_velocity.data.z_stddev);
+                  if Option.is_none record_velocity.data.x_stddev
+                  then Bitset.assign presence.velocity_stddev i false;
+                  Float_option.Array.unsafe_set velocity.clock_stddev i (convert_clock_velocity_stddev record_velocity.data.clock_stddev);
+                  if Option.is_none record_velocity.data.clock_stddev
+                  then Bitset.assign presence.clock_velocity_stddev i false;
+                  ()
+                | Some _, None ->
+                  raise_s
+                    [%message
+                      "Unexpected record without velocity"
+                        ~epoch:(metadata : Line.Epoch.t)
+                        ~index:(i : int)
+                    ]
+                | None, Some _ ->
+                  raise_s
+                    [%message
+                      "Unexpected record with velocity"
+                        ~epoch:(metadata : Line.Epoch.t)
+                        ~index:(i : int)
+                    ]
+              end;
               processed + 1
             )
       in

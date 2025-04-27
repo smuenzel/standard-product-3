@@ -953,14 +953,16 @@ EOF
             2.3732149737361174E-08 2.3732149737361174E-08 2.3732149737361174E-08
             2.3732149737361174E-08))
           (maneuver (Empty 76)) (orbit_pred (Empty 76)) (clock_event (Empty 76))
-          (clock_pred (Empty 76)))))
+          (clock_pred (Empty 76)) (velocity ()))))
        (presence
         ((pos
           1111111111111111111011111111111011111111111111111111111111110111111111111111)
          (clock
           1111111111111111111011111111111011111111111111111111111111110111111111111111)
          (pos_stddev (Full 76)) (clock_stddev (Full 76)) (maneuver (Empty 76))
-         (clock_event (Empty 76)))))))
+         (clock_event (Empty 76)) (velocity (Empty 76))
+         (clock_velocity (Empty 76)) (velocity_stddev (Full 76))
+         (clock_velocity_stddev (Full 76)))))))
     |}]
 
 let%expect_test "Processed file" =
@@ -1378,7 +1380,7 @@ EOF
             None None None None None None None None None None None None None None
             None None None None None None None None None None))
           (maneuver (Empty 80)) (orbit_pred (Empty 80)) (clock_event (Empty 80))
-          (clock_pred (Empty 80)))
+          (clock_pred (Empty 80)) (velocity ()))
          ((metadata
            ((year 2025) (month 4) (day_of_month 27) (hour 10) (minute 5)
             (second 0)))
@@ -1483,13 +1485,15 @@ EOF
             None None None None None None None None None None None None None None
             None None None None None None None None None None))
           (maneuver (Empty 80)) (orbit_pred (Full 80)) (clock_event (Empty 80))
-          (clock_pred (Full 80)))))
+          (clock_pred (Full 80)) (velocity ()))))
        (presence
         ((pos (Full 80))
          (clock
           11111111111111111111111111111111111111111111111111111111111111101101111111111111)
          (pos_stddev (Empty 80)) (clock_stddev (Empty 80)) (maneuver (Empty 80))
-         (clock_event (Empty 80)))))))
+         (clock_event (Empty 80)) (velocity (Empty 80))
+         (clock_velocity (Empty 80)) (velocity_stddev (Full 80))
+         (clock_velocity_stddev (Full 80)))))))
     |}]
 
 let%expect_test "Processed file" =
@@ -1605,5 +1609,7 @@ EOF
        (epochs ())
        (presence
         ((pos (Full 51)) (clock (Full 51)) (pos_stddev (Full 51))
-         (clock_stddev (Full 51)) (maneuver (Empty 51)) (clock_event (Empty 51)))))))
+         (clock_stddev (Full 51)) (maneuver (Empty 51)) (clock_event (Empty 51))
+         (velocity (Full 51)) (clock_velocity (Full 51))
+         (velocity_stddev (Full 51)) (clock_velocity_stddev (Full 51)))))))
     |}]
