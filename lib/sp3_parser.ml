@@ -4,6 +4,26 @@ open! Util
 
 (* Reference: https://files.igs.org/pub/data/format/sp3d.pdf *)
 
+module Float_option = struct
+  include (Float_option : module type of struct include Float_option end with module Array := Float_option.Array)
+
+  module Array = struct
+    include Float_option.Array
+
+    let sexp_of_t t =
+      if all_none t
+      then Sexp.List [ Atom "None"; Int.sexp_of_t (length t) ]
+      else sexp_of_t t
+
+    let t_of_sexp sexp =
+      match (sexp : Sexp.t) with
+      | List [ Atom "None"; len ] -> 
+        let len = [%of_sexp: int] len in
+        create len
+      | _ -> t_of_sexp sexp
+  end
+end
+
 module Bitset = struct
   include Bitset
 

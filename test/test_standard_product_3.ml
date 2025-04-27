@@ -1351,36 +1351,9 @@ EOF
             -0.001402313084 1.6623523E-05 -5.7156629E-05 -0.000645514475
             -9.1040787E-05 -0.001493927773 -6.4719943E-05 1.5250256E-05
             -0.000177567616 -0.000386386305))
-          (x_stddev
-           (None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None))
-          (y_stddev
-           (None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None))
-          (z_stddev
-           (None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None))
-          (clock_stddev
-           (None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None))
-          (maneuver (Empty 80)) (orbit_pred (Empty 80)) (clock_event (Empty 80))
-          (clock_pred (Empty 80)) (velocity ()))
+          (x_stddev (None 80)) (y_stddev (None 80)) (z_stddev (None 80))
+          (clock_stddev (None 80)) (maneuver (Empty 80)) (orbit_pred (Empty 80))
+          (clock_event (Empty 80)) (clock_pred (Empty 80)) (velocity ()))
          ((metadata
            ((year 2025) (month 4) (day_of_month 27) (hour 10) (minute 5)
             (second 0)))
@@ -1456,36 +1429,9 @@ EOF
             -0.001402319542 1.6623659E-05 -5.7153362E-05 -0.000645517522
             -9.1041819E-05 -0.001493939922 -6.4720433E-05 1.52502E-05
             -0.000177568322 -0.000386387906))
-          (x_stddev
-           (None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None))
-          (y_stddev
-           (None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None))
-          (z_stddev
-           (None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None))
-          (clock_stddev
-           (None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None None None None None
-            None None None None None None None None None None))
-          (maneuver (Empty 80)) (orbit_pred (Full 80)) (clock_event (Empty 80))
-          (clock_pred (Full 80)) (velocity ()))))
+          (x_stddev (None 80)) (y_stddev (None 80)) (z_stddev (None 80))
+          (clock_stddev (None 80)) (maneuver (Empty 80)) (orbit_pred (Full 80))
+          (clock_event (Empty 80)) (clock_pred (Full 80)) (velocity ()))))
        (presence
         ((pos (Full 80))
          (clock
