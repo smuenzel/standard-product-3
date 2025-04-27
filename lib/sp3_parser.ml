@@ -1128,7 +1128,10 @@ module Processed_file = struct
               begin match velocity, record_velocity with
                 | None, None ->
                   Bitset.assign presence.velocity i false;
-                  Bitset.assign presence.clock_velocity i false
+                  Bitset.assign presence.clock_velocity i false;
+                  Bitset.assign presence.velocity_stddev i false;
+                  Bitset.assign presence.clock_velocity_stddev i false;
+                  ()
                 | Some velocity, Some record_velocity ->
                   Float_option.Array.unsafe_set velocity.x i (convert_velocity record_velocity.data.x);
                   Float_option.Array.unsafe_set velocity.y i (convert_velocity record_velocity.data.y);

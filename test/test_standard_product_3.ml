@@ -961,8 +961,8 @@ EOF
           1111111111111111111011111111111011111111111111111111111111110111111111111111)
          (pos_stddev (Full 76)) (clock_stddev (Full 76)) (maneuver (Empty 76))
          (clock_event (Empty 76)) (velocity (Empty 76))
-         (clock_velocity (Empty 76)) (velocity_stddev (Full 76))
-         (clock_velocity_stddev (Full 76)))))))
+         (clock_velocity (Empty 76)) (velocity_stddev (Empty 76))
+         (clock_velocity_stddev (Empty 76)))))))
     |}]
 
 let%expect_test "Processed file" =
@@ -1438,8 +1438,8 @@ EOF
           11111111111111111111111111111111111111111111111111111111111111101101111111111111)
          (pos_stddev (Empty 80)) (clock_stddev (Empty 80)) (maneuver (Empty 80))
          (clock_event (Empty 80)) (velocity (Empty 80))
-         (clock_velocity (Empty 80)) (velocity_stddev (Full 80))
-         (clock_velocity_stddev (Full 80)))))))
+         (clock_velocity (Empty 80)) (velocity_stddev (Empty 80))
+         (clock_velocity_stddev (Empty 80)))))))
     |}]
 
 let%expect_test "Processed file" =
