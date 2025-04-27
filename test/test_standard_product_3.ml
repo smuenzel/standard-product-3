@@ -322,6 +322,104 @@ PG03   7117.316147  20056.052947 -16137.962133    681.020785|};
          ())))))
     |}]
 
+let%expect_test "Header" =
+  expect_test_f (module Header)
+    {|#cP2025  4 26  6  0  0.00000000     576   u+U IGb20 FIT  GFZ
+## 2363 540000.00000000   300.00000000 60791 0.2500000000000
++   77   E02E03E04E05E06E07E08E09E10E13E14E15E16E18E19E21E23
++        E24E25E26E27E29E30E31E33E34E36G01G02G03G04G06G07G08
++        G09G10G11G12G13G14G15G16G17G18G19G20G22G23G24G25G26
++        G27G28G29G30G31G32R02R03R04R05R07R08R09R11R12R14R15
++        R16R17R18R19R20R21R22R24R26 00 00 00 00 00 00 00 00
+++         6  6  6  6  6  6  6  6  6  8  6  6  6  8  6  6  6
+++         6  6  6  6  6  6  6  6  6  6  6  6  6  6  6  6  6
+++         6  6  6  6  6  6  6  6  6  6  6  6  6  6  6 10  8
+++         6  6  6  6  6  6  6  8  8  8  8  8  6  8  8  8  8
+++         8  8  6  8  8  6  8  8  8  0  0  0  0  0  0  0  0
+%c M  cc GPS ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc
+%c cc cc ccc ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc
+%f  1.2500000  1.025000000  0.00000000000  0.000000000000000
+%f  0.0000000  0.000000000  0.00000000000  0.000000000000000
+%i    0    0    0    0      0      0      0      0         0
+%i    0    0    0    0      0      0      0      0         0
+/* PCV:IGS20_2360 OL/AL:FES2014b NONE     YN CLK:CoN ORB:CoN
+/*     GFZ Helmholtz Centre for Geosciences
+/*                                                   
+/*                                                   
+|};
+  [%expect {|
+    ((unconsumed ((buf "\n") (off 1310) (len 1)))
+     (result
+      ((version
+        ((version C) (pos_or_vel Pos) (year 2025) (month 4) (day_of_month 26)
+         (hour 6) (minute 0) (second 0) (number_of_epochs 576)
+         (data_used "  u+U") (coordinate_system IGb20) (orbit_used FIT)
+         (agency " GFZ")))
+       (time_info
+        ((gps_week 2363) (seconds_of_week 540000) (epoch_interval 300)
+         (modified_julian_day 60791) (fractional_day 0.25)))
+       (space_vehicles
+        (((number (77))
+          (ids
+           (((kind Galileo) (prn 2)) ((kind Galileo) (prn 3))
+            ((kind Galileo) (prn 4)) ((kind Galileo) (prn 5))
+            ((kind Galileo) (prn 6)) ((kind Galileo) (prn 7))
+            ((kind Galileo) (prn 8)) ((kind Galileo) (prn 9))
+            ((kind Galileo) (prn 10)) ((kind Galileo) (prn 13))
+            ((kind Galileo) (prn 14)) ((kind Galileo) (prn 15))
+            ((kind Galileo) (prn 16)) ((kind Galileo) (prn 18))
+            ((kind Galileo) (prn 19)) ((kind Galileo) (prn 21))
+            ((kind Galileo) (prn 23)))))
+         ((number ())
+          (ids
+           (((kind Galileo) (prn 24)) ((kind Galileo) (prn 25))
+            ((kind Galileo) (prn 26)) ((kind Galileo) (prn 27))
+            ((kind Galileo) (prn 29)) ((kind Galileo) (prn 30))
+            ((kind Galileo) (prn 31)) ((kind Galileo) (prn 33))
+            ((kind Galileo) (prn 34)) ((kind Galileo) (prn 36))
+            ((kind Gps) (prn 1)) ((kind Gps) (prn 2)) ((kind Gps) (prn 3))
+            ((kind Gps) (prn 4)) ((kind Gps) (prn 6)) ((kind Gps) (prn 7))
+            ((kind Gps) (prn 8)))))
+         ((number ())
+          (ids
+           (((kind Gps) (prn 9)) ((kind Gps) (prn 10)) ((kind Gps) (prn 11))
+            ((kind Gps) (prn 12)) ((kind Gps) (prn 13)) ((kind Gps) (prn 14))
+            ((kind Gps) (prn 15)) ((kind Gps) (prn 16)) ((kind Gps) (prn 17))
+            ((kind Gps) (prn 18)) ((kind Gps) (prn 19)) ((kind Gps) (prn 20))
+            ((kind Gps) (prn 22)) ((kind Gps) (prn 23)) ((kind Gps) (prn 24))
+            ((kind Gps) (prn 25)) ((kind Gps) (prn 26)))))
+         ((number ())
+          (ids
+           (((kind Gps) (prn 27)) ((kind Gps) (prn 28)) ((kind Gps) (prn 29))
+            ((kind Gps) (prn 30)) ((kind Gps) (prn 31)) ((kind Gps) (prn 32))
+            ((kind Glonass) (prn 2)) ((kind Glonass) (prn 3))
+            ((kind Glonass) (prn 4)) ((kind Glonass) (prn 5))
+            ((kind Glonass) (prn 7)) ((kind Glonass) (prn 8))
+            ((kind Glonass) (prn 9)) ((kind Glonass) (prn 11))
+            ((kind Glonass) (prn 12)) ((kind Glonass) (prn 14))
+            ((kind Glonass) (prn 15)))))
+         ((number ())
+          (ids
+           (((kind Glonass) (prn 16)) ((kind Glonass) (prn 17))
+            ((kind Glonass) (prn 18)) ((kind Glonass) (prn 19))
+            ((kind Glonass) (prn 20)) ((kind Glonass) (prn 21))
+            ((kind Glonass) (prn 22)) ((kind Glonass) (prn 24))
+            ((kind Glonass) (prn 26)))))))
+       (accuracy
+        (((accuracy_exponent
+           ((6) (6) (6) (6) (6) (6) (6) (6) (6) (8) (6) (6) (6) (8) (6) (6) (6))))
+         ((accuracy_exponent
+           ((6) (6) (6) (6) (6) (6) (6) (6) (6) (6) (6) (6) (6) (6) (6) (6) (6))))
+         ((accuracy_exponent
+           ((6) (6) (6) (6) (6) (6) (6) (6) (6) (6) (6) (6) (6) (6) (6) (10) (8))))
+         ((accuracy_exponent
+           ((6) (6) (6) (6) (6) (6) (6) (8) (8) (8) (8) (8) (6) (8) (8) (8) (8))))
+         ((accuracy_exponent
+           ((8) (8) (6) (8) (8) (6) (8) (8) (8) () () () () () () () ())))))
+       (type_and_time ((file_type Mixed) (time_system Gps)))
+       (base ((position_velocity 1.25) (clock 1.025))) (comments (() () () ())))))
+    |}]
+
 let%expect_test "Full file" =
   expect_test_f (module Full_file)
 {|#cP2025  3 30  0  0  0.00000000     577 d+D   IGb20 EXT AIUB

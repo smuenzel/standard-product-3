@@ -261,6 +261,7 @@ module Space_vehicle_id = struct
   let parse_opt =
     choice
       [ string "  0" *> return None
+      ; string " 00" *> return None
       ; parse >>| Option.some
       ]
 end
@@ -434,6 +435,9 @@ module Line = struct
         List.map ~f:(function | 0 -> None | x -> Some x) accuracy_exponent
       in
       { accuracy_exponent }
+
+    let parse =
+      parse <?> "accuracy"
   end
 
   module Type_and_time = struct
@@ -842,9 +846,9 @@ module Header = struct
     let* version = F.line Line.Version.parse in
     let* time_info = F.line Line.Time_info.parse in
     let* space_vehicles = F.lines Line.Space_vehicles.parse in
-    let* () = F.eol in
+    let* () = F.eol <?> "post space vehicles" in
     let* accuracy = F.lines Line.Accuracy.parse in
-    let* () = F.eol in
+    let* () = F.eol <?> "post accuracy" in
     let* type_and_time = F.line Line.Type_and_time.parse in
     let* base = F.line Line.Base.parse in
     let* _int_empty = F.line Line.Int_empty.parse in
@@ -858,6 +862,8 @@ module Header = struct
     ; base
     ; comments
     }
+
+  let parse = parse <?> "Header"
 end
 
 module Full_file = struct
