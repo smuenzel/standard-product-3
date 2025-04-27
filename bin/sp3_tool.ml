@@ -9,7 +9,7 @@ let command =
       fun () ->
         let result = Standard_product_3.Sp3.process_file filename in
         result
-        |> [%sexp_of : (Standard_product_3.Sp3_parser.Processed_file.t, string) Result.t]
+        |> [%sexp_of : Standard_product_3.Sp3_parser.Processed_file.t Or_error.t]
         |> print_s
     ]
 

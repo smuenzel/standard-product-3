@@ -163,17 +163,33 @@ module F = struct
     with
     | Failure _ -> fail "not an int"
 
+  let blank = let+ _ = char ' ' <?> "F.blank" in ()
+
+  let blank_n n =
+    let+ _ = Angstrom.count n blank in
+    ()
+
   let i n =
     i n <?> "F.i"
 
+  let i_opt n =
+    choice
+      [ i n >>| Option.some
+      ; blank_n n >>| fun () -> None
+      ]
+
   let f w d = Fortran.f_editing ~w ~d
+
+  let f_opt w d =
+    choice
+      [ f w d >>| Option.some
+      ; blank_n w >>| fun () -> None
+      ]
 
   let a n = take n
 
   let a n =
     a n <?> "F.a"
-
-  let blank = let+ _ = char ' ' <?> "F.blank" in ()
 
   let eol = let+ _ = char '\n' <?> "F.eol" in ()
 
@@ -252,9 +268,12 @@ module File_type = struct
   let parse = 
     choice
       [ string "M " *> return Mixed
-      ; let* kind = Space_vehicle_id.Kind.parse in
+      ; (let* kind = Space_vehicle_id.Kind.parse in
         let+ _ = F.blank in
-        Only kind
+        Only kind)
+      ; (let* _ = F.blank in
+        let+ kind = Space_vehicle_id.Kind.parse in
+        Only kind)
       ]
 end
 
@@ -611,20 +630,14 @@ module Line = struct
     let parse_prefix = parse_prefix <?> "prefix"
 
     let parse_stdev =
-      let* x_stddev = F.i 2 in
+      let* x_stddev = F.i_opt 2 in
       let* _ = F.blank in
-      let* y_stddev = F.i 2 in
+      let* y_stddev = F.i_opt 2 in
       let* _ = F.blank in
-      let* z_stddev = F.i 2 in
+      let* z_stddev = F.i_opt 2 in
       let* _ = F.blank in
-      let+ clock_stddev =
-        choice
-          [ F.i 3 >>| Option.some
-          ; count 3 F.blank >>| fun _ -> None
-          ]
-          <?> "clock_stddev"
-      in
-      Some x_stddev, Some y_stddev, Some z_stddev, clock_stddev
+      let+ clock_stddev = F.i_opt 3 in
+      x_stddev, y_stddev, z_stddev, clock_stddev
 
     let parse_stdev = parse_stdev <?> "stdev"
 
