@@ -1,5 +1,6 @@
 open Core
 open Angstrom
+open! Util
 
 (* Reference: https://files.igs.org/pub/data/format/sp3d.pdf *)
 
@@ -177,7 +178,7 @@ module Space_vehicle_id = struct
       | Beidou
       | Irnss
       | Qzss
-    [@@deriving sexp]
+    [@@deriving sexp, equal]
 
     let parse =
       let* c = any_char in
@@ -197,7 +198,7 @@ module Space_vehicle_id = struct
   type t =
     { kind : Kind.t
     ; prn: int
-    } [@@deriving sexp]
+    } [@@deriving sexp, equal]
 
   let parse =
     let* kind = Kind.parse in
@@ -771,11 +772,126 @@ module Full_file = struct
 end
 
 module Processed_file = struct
+  module Epoch = struct
+    type t =
+      { metadata : Line.Epoch.t
+      ; x : Float_option.Array.t
+      ; y : Float_option.Array.t
+      ; z : Float_option.Array.t
+      ; clock : Float_option.Array.t
+      ; x_stddev : Float_option.Array.t
+      ; y_stddev : Float_option.Array.t
+      ; z_stddev : Float_option.Array.t
+      ; clock_stddev : Float_option.Array.t
+      } [@@deriving sexp]
+
+    let of_epoch_block
+        ~(base : Line.Base.t)
+        ~(space_vehicles : Space_vehicle_id.t array)
+        (epoch_block : Line.Epoch.t * Line.Position_and_clock.t list)
+      =
+      let metadata, records = epoch_block in
+      let len = Array.length space_vehicles in
+      let result =
+        { metadata
+        ; x = Float_option.Array.create len
+        ; y = Float_option.Array.create len
+        ; z = Float_option.Array.create len
+        ; clock = Float_option.Array.create len
+        ; x_stddev = Float_option.Array.create len
+        ; y_stddev = Float_option.Array.create len
+        ; z_stddev = Float_option.Array.create len
+        ; clock_stddev = Float_option.Array.create len
+        }
+      in
+      let convert_pos (b : Bigdecimal.t) =
+        Bigdecimal.scale_by ~power_of_ten:(-3) b
+        |> Bigdecimal.to_float
+        |> Float_option.some
+      in
+      let convert_pos_stddev (s : int option) =
+        match s with
+        | None -> Float_option.none
+        | Some exponent ->
+          Bigdecimal.( ** ) base.position_velocity exponent
+          |> Bigdecimal.scale_by ~power_of_ten:(-3)
+          |> Bigdecimal.to_float
+          |> Float_option.some
+      in
+      let convert_clock_stddev (s : int option) =
+        match s with
+        | None -> Float_option.none
+        | Some exponent ->
+          Bigdecimal.( ** ) base.clock exponent
+          |> Bigdecimal.scale_by ~power_of_ten:(-12)
+          |> Bigdecimal.to_float
+          |> Float_option.some
+      in
+      let processed =
+        List.foldi ~init:0
+          records
+          ~f:(fun i processed record ->
+              let space_vehicle = space_vehicles.(i) in
+              if not (Space_vehicle_id.equal space_vehicle record.space_vehicle_id)
+              then begin
+                raise_s
+                  [%message
+                    "Unexpected space vehicle"
+                      ~expected:(space_vehicle : Space_vehicle_id.t)
+                      ~actual:(record.space_vehicle_id : Space_vehicle_id.t)
+                      ~epoch:(metadata : Line.Epoch.t)
+                      ~index:(i : int)
+                  ]
+              end;
+              let none = Float_option.none in
+              let x, y, z, clock, x_stddev, y_stddev, z_stddev, clock_stddev =
+                match record.data with
+                | None -> none, none, none, none, none, none, none, none
+                | Some data ->
+                  let x = convert_pos data.x in
+                  let y = convert_pos data.y in
+                  let z = convert_pos data.z in
+                  let clock =
+                    match data.clock with
+                    | None -> none
+                    | Some clock ->
+                      Bigdecimal.scale_by ~power_of_ten:(-6) clock
+                      |> Bigdecimal.to_float
+                      |> Float_option.some
+                  in
+                  let x_stddev = convert_pos_stddev data.x_stddev in
+                  let y_stddev = convert_pos_stddev data.y_stddev in
+                  let z_stddev = convert_pos_stddev data.z_stddev in
+                  let clock_stddev = convert_clock_stddev data.clock_stddev in
+                  x, y, z, clock, x_stddev, y_stddev, z_stddev, clock_stddev
+              in
+              Float_option.Array.unsafe_set result.x i x;
+              Float_option.Array.unsafe_set result.y i y;
+              Float_option.Array.unsafe_set result.z i z;
+              Float_option.Array.unsafe_set result.clock i clock;
+              Float_option.Array.unsafe_set result.x_stddev i x_stddev;
+              Float_option.Array.unsafe_set result.y_stddev i y_stddev;
+              Float_option.Array.unsafe_set result.z_stddev i z_stddev;
+              Float_option.Array.unsafe_set result.clock_stddev i clock_stddev;
+              processed + 1
+            )
+      in
+      if processed <> len
+      then begin
+        raise_s
+          [%message "expected number of space vehicles not found in epoch block"
+              ~expected:(len : int)
+              ~actual:(processed : int)
+              ~epoch:(metadata : Line.Epoch.t)]
+      end;
+      result
+  end
+
   type t =
     { raw_header : Header.t
     ; space_vehicles : Space_vehicle_id.t array
     ; accuracy : Float_option.Array.t
-    ; epoch_blocks : (Line.Epoch.t * Line.Position_and_clock.t list) list
+    ; epochs : Epoch.t list
     } [@@deriving sexp]
 
   let parse =
@@ -806,9 +922,14 @@ module Processed_file = struct
             p /. 1000.0
           )
     in
+    let epochs =
+      List.map
+        epoch_blocks
+        ~f:(Epoch.of_epoch_block ~base:raw_header.base ~space_vehicles)
+    in
     { raw_header
     ; space_vehicles
-    ; epoch_blocks
+    ; epochs
     ; accuracy
     }
 
