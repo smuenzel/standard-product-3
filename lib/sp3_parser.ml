@@ -221,14 +221,14 @@ module F = struct
 
   let line p =
     let* p = p in
-    let+ () = eol in
+    let+ () = eol <?> "F.line.eol" in
     p
 
   let line p =
     line p <?> "F.line"
 
   let lines p =
-    let+ l = sep_by eol p in
+    let+ l = sep_by (eol <?> "F.lines.eol") p in
     l
 
   let lines p =
@@ -665,8 +665,12 @@ module Line = struct
       let* y_stddev = F.i_opt 2 in
       let* _ = F.blank in
       let* z_stddev = F.i_opt 2 in
-      let* _ = F.blank in
-      let+ clock_stddev = F.i_opt 3 in
+      let+ clock_stddev =
+        option
+          None
+          (let* _ = F.blank in
+           F.i_opt 3)
+      in
       x_stddev, y_stddev, z_stddev, clock_stddev
 
     let parse_stdev = parse_stdev <?> "stdev"
@@ -695,11 +699,7 @@ module Line = struct
         |> return
       | _ -> fail "not partial"
 
-    let full_data 
-        ~x ~y ~z ~clock
-      =
-      let* _ = F.blank in
-      let* x_stddev, y_stddev, z_stddev, clock_stddev = parse_stdev in
+    let parse_flags =
       let* _ = F.blank in
       let* clock_event =
         let* c = any_char in
@@ -730,6 +730,16 @@ module Line = struct
         | 'P' -> return true
         | ' ' -> return false
         | _ -> fail "not an orbit prediction"
+      in
+      clock_event, clock_pred, maneuver, orbit_pred
+
+    let full_data 
+        ~x ~y ~z ~clock
+      =
+      let* _ = F.blank in
+      let* x_stddev, y_stddev, z_stddev, clock_stddev = parse_stdev in
+      let+ clock_event, clock_pred, maneuver, orbit_pred = 
+        option (false, false, false, false) parse_flags
       in
       Some
         { Data.x
@@ -837,10 +847,11 @@ module Epoch_block = struct
   let with_velocity =
     let* pos_and_clock = Line.Position_and_clock.parse in
     let velocity =
-      let* () = F.eol in
+      let* () = F.eol <?> "with_velocity.eol" in
       let+ velocity = Line.Velocity.parse in
       Some velocity
     in
+    let velocity = velocity <?> "with_velocity" in
     let+ velocity = option None velocity in
     pos_and_clock, velocity
 
@@ -901,6 +912,8 @@ module Full_file = struct
     { header
     ; epoch_blocks
     }
+
+  let parse = parse <?> "Full_file"
 end
 
 module Processed_file = struct
@@ -1188,9 +1201,11 @@ module Processed_file = struct
   let parse =
     let* raw_header = F.line Header.parse in
     let* epoch_blocks = F.lines Epoch_block.parse in
-    let* () =  if List.is_empty epoch_blocks then Angstrom.return () else F.eol in
+    let* () = 
+      if List.is_empty epoch_blocks then Angstrom.return () else F.eol <?> "empty epoch block"
+    in
     let* _eof = string "EOF" in
-    let+ () = F.eol in
+    let+ () = F.eol <?> "EOF" in
     let space_vehicles =
       List.concat_map raw_header.space_vehicles ~f:(fun x ->
           x.ids
@@ -1225,6 +1240,9 @@ module Processed_file = struct
     ; accuracy
     ; presence
     }
+
+  let parse =
+    parse <?> "sp3"
 
 end
 
