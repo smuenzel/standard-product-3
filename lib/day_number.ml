@@ -2,6 +2,8 @@ open Core
 
 type t = int [@@deriving sexp, bin_io, compare, equal]
 
+let to_int = Fn.id
+
 let of_date (date : Date.t) =
   let y = Date.year date in
   (Date.diff date (Date.create_exn ~y ~m:Jan ~d:1)) + 1

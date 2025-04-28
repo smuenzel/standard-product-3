@@ -2,6 +2,8 @@ open Core
 
 type t = int [@@deriving sexp, bin_io, compare, equal]
 
+let to_int = Fn.id
+
 let epoch_start =
   (* Time_ns doesn't handle leap seconds anyway.... *)
   Time_ns.of_date_ofday

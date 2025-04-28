@@ -9,6 +9,6 @@
    bigdecimal
    float_option
    decompress.gz
-   bitset)
+   fast_bitvector)
   (preprocess (pps ppx_jane))
   (inline_tests))

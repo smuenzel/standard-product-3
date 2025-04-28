@@ -25,28 +25,27 @@ module Float_option = struct
 end
 
 module Bitset = struct
-  include Bitset
+  include Fast_bitvector
 
-  let create_full ~len =
-    let result = create ~len in
-    set_all result;
-    result
+  let create_full ~length =
+    let result = create ~length in
+    not ~result result
 
   let sexp_of_t t =
-    if Bitset.is_empty t
-    then Sexp.List [ Atom "Empty"; Int.sexp_of_t (Bitset.capacity t) ]
-    else if Bitset.is_empty (Bitset.complement t)
-    then Sexp.List [ Atom "Full"; Int.sexp_of_t (Bitset.capacity t) ]
-    else sexp_of_t t
+    if is_empty t
+    then Sexp.List [ Atom "Empty"; Int.sexp_of_t (length t) ]
+    else if is_full t
+    then Sexp.List [ Atom "Full"; Int.sexp_of_t (length t) ]
+    else Big_endian.sexp_of_t t
 
   let t_of_sexp sexp =
     match (sexp : Sexp.t) with
     | List [ Atom "Empty"; len ] -> 
-      let len = [%of_sexp: int] len in
-      create ~len
+      let length = [%of_sexp: int] len in
+      create ~length
     | List [ Atom "Full"; len ] -> 
-      let len = [%of_sexp: int] len in
-      create_full ~len
+      let length = [%of_sexp: int] len in
+      create_full ~length
     | _ -> t_of_sexp sexp
 end
 
@@ -931,17 +930,17 @@ module Processed_file = struct
       ; clock_velocity_stddev : Bitset.t
       } [@@deriving sexp]
 
-    let create len =
-      { pos = Bitset.create_full ~len
-      ; clock = Bitset.create_full ~len
-      ; pos_stddev = Bitset.create_full ~len
-      ; clock_stddev = Bitset.create_full ~len
-      ; maneuver = Bitset.create ~len
-      ; clock_event = Bitset.create ~len
-      ; velocity = Bitset.create_full ~len
-      ; clock_velocity = Bitset.create_full ~len
-      ; velocity_stddev = Bitset.create_full ~len
-      ; clock_velocity_stddev = Bitset.create_full ~len
+    let create length =
+      { pos = Bitset.create_full ~length
+      ; clock = Bitset.create_full ~length
+      ; pos_stddev = Bitset.create_full ~length
+      ; clock_stddev = Bitset.create_full ~length
+      ; maneuver = Bitset.create ~length
+      ; clock_event = Bitset.create ~length
+      ; velocity = Bitset.create_full ~length
+      ; clock_velocity = Bitset.create_full ~length
+      ; velocity_stddev = Bitset.create_full ~length
+      ; clock_velocity_stddev = Bitset.create_full ~length
       }
   end
 
@@ -983,42 +982,42 @@ module Processed_file = struct
         (epoch_block : Line.Epoch.t * (Line.Position_and_clock.t * Line.Velocity.t option) list)
       =
       let metadata, records = epoch_block in
-      let len = Array.length space_vehicles in
+      let length = Array.length space_vehicles in
       let velocity = 
         match records with
         | [] -> None
         | (_, (None)) :: _ -> None
         | (_, (Some _)) :: _ ->
           Some
-            { Velocity.x = Float_option.Array.create len
-            ; y = Float_option.Array.create len
-            ; z = Float_option.Array.create len
-            ; clock = Float_option.Array.create len
-            ; x_stddev = Float_option.Array.create len
-            ; y_stddev = Float_option.Array.create len
-            ; z_stddev = Float_option.Array.create len
-            ; clock_stddev = Float_option.Array.create len
+            { Velocity.x = Float_option.Array.create length
+            ; y = Float_option.Array.create length
+            ; z = Float_option.Array.create length
+            ; clock = Float_option.Array.create length
+            ; x_stddev = Float_option.Array.create length
+            ; y_stddev = Float_option.Array.create length
+            ; z_stddev = Float_option.Array.create length
+            ; clock_stddev = Float_option.Array.create length
             }
       in
       let result =
         { metadata
-        ; x = Float_option.Array.create len
-        ; y = Float_option.Array.create len
-        ; z = Float_option.Array.create len
-        ; clock = Float_option.Array.create len
-        ; x_stddev = Float_option.Array.create len
-        ; y_stddev = Float_option.Array.create len
-        ; z_stddev = Float_option.Array.create len
-        ; clock_stddev = Float_option.Array.create len
-        ; maneuver = Bitset.create ~len
-        ; orbit_pred = Bitset.create ~len
-        ; clock_event = Bitset.create ~len
-        ; clock_pred = Bitset.create ~len
+        ; x = Float_option.Array.create length
+        ; y = Float_option.Array.create length
+        ; z = Float_option.Array.create length
+        ; clock = Float_option.Array.create length
+        ; x_stddev = Float_option.Array.create length
+        ; y_stddev = Float_option.Array.create length
+        ; z_stddev = Float_option.Array.create length
+        ; clock_stddev = Float_option.Array.create length
+        ; maneuver = Bitset.create ~length
+        ; orbit_pred = Bitset.create ~length
+        ; clock_event = Bitset.create ~length
+        ; clock_pred = Bitset.create ~length
         ; velocity
         }
       in
       let convert_pos (b : Bigdecimal.t) =
-        Bigdecimal.scale_by ~power_of_ten:(-3) b
+        Bigdecimal.scale_by ~power_of_ten:(3) b
         |> Bigdecimal.to_float
         |> Float_option.some
       in
@@ -1091,8 +1090,8 @@ module Processed_file = struct
               let x, y, z, clock, x_stddev, y_stddev, z_stddev, clock_stddev =
                 match record.data with
                 | None ->
-                  Bitset.assign presence.pos i false;
-                  Bitset.assign presence.clock i false;
+                  Bitset.Unsafe.set_to presence.pos i false;
+                  Bitset.Unsafe.set_to presence.clock i false;
                   none, none, none, none, none, none, none, none
                 | Some data ->
                   let x = convert_pos data.x in
@@ -1101,7 +1100,7 @@ module Processed_file = struct
                   let clock =
                     match data.clock with
                     | None ->
-                      Bitset.assign presence.clock i false;
+                      Bitset.Unsafe.set_to presence.clock i false;
                       none
                     | Some clock ->
                       Bigdecimal.scale_by ~power_of_ten:(-6) clock
@@ -1113,21 +1112,21 @@ module Processed_file = struct
                   let z_stddev = convert_pos_stddev data.z_stddev in
                   begin match%optional.Float_option x_stddev, y_stddev, z_stddev with
                     | Some _, Some _, Some _ -> ()
-                    | _ -> Bitset.assign presence.pos_stddev i false
+                    | _ -> Bitset.Unsafe.set_to presence.pos_stddev i false
                   end;
                   let clock_stddev = convert_clock_stddev data.clock_stddev in
                   begin match%optional.Float_option clock_stddev with
                     | Some _ -> ()
-                    | _ -> Bitset.assign presence.clock_stddev i false
+                    | _ -> Bitset.Unsafe.set_to presence.clock_stddev i false
                   end;
-                  Bitset.assign result.maneuver i data.maneuver;
+                  Bitset.Unsafe.set_to result.maneuver i data.maneuver;
                   if data.maneuver
-                  then Bitset.assign presence.maneuver i true;
-                  Bitset.assign result.orbit_pred i data.orbit_pred;
-                  Bitset.assign result.clock_event i data.clock_event;
+                  then Bitset.Unsafe.set_to presence.maneuver i true;
+                  Bitset.Unsafe.set_to result.orbit_pred i data.orbit_pred;
+                  Bitset.Unsafe.set_to result.clock_event i data.clock_event;
                   if data.clock_event
-                  then Bitset.assign presence.clock_event i true;
-                  Bitset.assign result.clock_pred i data.clock_pred;
+                  then Bitset.Unsafe.set_to presence.clock_event i true;
+                  Bitset.Unsafe.set_to result.clock_pred i data.clock_pred;
                   x, y, z, clock, x_stddev, y_stddev, z_stddev, clock_stddev
               in
               Float_option.Array.unsafe_set result.x i x;
@@ -1140,10 +1139,10 @@ module Processed_file = struct
               Float_option.Array.unsafe_set result.clock_stddev i clock_stddev;
               begin match velocity, record_velocity with
                 | None, None ->
-                  Bitset.assign presence.velocity i false;
-                  Bitset.assign presence.clock_velocity i false;
-                  Bitset.assign presence.velocity_stddev i false;
-                  Bitset.assign presence.clock_velocity_stddev i false;
+                  Bitset.Unsafe.set_to presence.velocity i false;
+                  Bitset.Unsafe.set_to presence.clock_velocity i false;
+                  Bitset.Unsafe.set_to presence.velocity_stddev i false;
+                  Bitset.Unsafe.set_to presence.clock_velocity_stddev i false;
                   ()
                 | Some velocity, Some record_velocity ->
                   Float_option.Array.unsafe_set velocity.x i (convert_velocity record_velocity.data.x);
@@ -1151,15 +1150,15 @@ module Processed_file = struct
                   Float_option.Array.unsafe_set velocity.z i (convert_velocity record_velocity.data.z);
                   Float_option.Array.unsafe_set velocity.clock i (convert_clock_velocity record_velocity.data.clock);
                   if Option.is_none record_velocity.data.clock
-                  then Bitset.assign presence.clock_velocity i false;
+                  then Bitset.Unsafe.set_to presence.clock_velocity i false;
                   Float_option.Array.unsafe_set velocity.x_stddev i (convert_velocity_stddev record_velocity.data.x_stddev);
                   Float_option.Array.unsafe_set velocity.y_stddev i (convert_velocity_stddev record_velocity.data.y_stddev);
                   Float_option.Array.unsafe_set velocity.z_stddev i (convert_velocity_stddev record_velocity.data.z_stddev);
                   if Option.is_none record_velocity.data.x_stddev
-                  then Bitset.assign presence.velocity_stddev i false;
+                  then Bitset.Unsafe.set_to presence.velocity_stddev i false;
                   Float_option.Array.unsafe_set velocity.clock_stddev i (convert_clock_velocity_stddev record_velocity.data.clock_stddev);
                   if Option.is_none record_velocity.data.clock_stddev
-                  then Bitset.assign presence.clock_velocity_stddev i false;
+                  then Bitset.Unsafe.set_to presence.clock_velocity_stddev i false;
                   ()
                 | Some _, None ->
                   raise_s
@@ -1179,11 +1178,11 @@ module Processed_file = struct
               processed + 1
             )
       in
-      if processed <> len
+      if processed <> length
       then begin
         raise_s
           [%message "expected number of space vehicles not found in epoch block"
-              ~expected:(len : int)
+              ~expected:(length : int)
               ~actual:(processed : int)
               ~epoch:(metadata : Line.Epoch.t)]
       end;
