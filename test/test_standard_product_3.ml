@@ -982,10 +982,10 @@ EOF
           (clock_pred (Empty 76)) (velocity ()))))
        (presence
         ((pos
-          (BE
+          (B0F
            1111111111111111111011111111111011111111111111111111111111110111111111111111))
          (clock
-          (BE
+          (B0F
            1111111111111111111011111111111011111111111111111111111111110111111111111111))
          (pos_stddev (Full 76)) (clock_stddev (Full 76)) (maneuver (Empty 76))
          (clock_event (Empty 76)) (velocity (Empty 76))
@@ -1464,7 +1464,7 @@ EOF
        (presence
         ((pos (Full 80))
          (clock
-          (BE
+          (B0F
            11111111111111111111111111111111111111111111111111111111111111101101111111111111))
          (pos_stddev (Empty 80)) (clock_stddev (Empty 80)) (maneuver (Empty 80))
          (clock_event (Empty 80)) (velocity (Empty 80))
@@ -1990,10 +1990,10 @@ EOF
        (presence
         ((pos (Full 81))
          (clock
-          (BE
+          (B0F
            111111111111011011111111111111111111111111111111111101111111111111111111111111111))
          (pos_stddev
-          (BE
+          (B0F
            111111111111111111111111111111111111111111111111111111111111111111111111111111110))
          (clock_stddev (Empty 81)) (maneuver (Empty 81)) (clock_event (Empty 81))
          (velocity (Empty 81)) (clock_velocity (Empty 81))

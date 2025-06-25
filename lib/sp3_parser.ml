@@ -27,25 +27,21 @@ end
 module Bitset = struct
   include Fast_bitvector
 
-  let create_full ~length =
-    let result = create ~length in
-    not ~result result
-
   let sexp_of_t t =
     if is_empty t
     then Sexp.List [ Atom "Empty"; Int.sexp_of_t (length t) ]
     else if is_full t
     then Sexp.List [ Atom "Full"; Int.sexp_of_t (length t) ]
-    else Big_endian.sexp_of_t t
+    else Bit_zero_first.sexp_of_t t
 
   let t_of_sexp sexp =
     match (sexp : Sexp.t) with
     | List [ Atom "Empty"; len ] -> 
-      let length = [%of_sexp: int] len in
-      create ~length
+      let len = [%of_sexp: int] len in
+      create ~len
     | List [ Atom "Full"; len ] -> 
-      let length = [%of_sexp: int] len in
-      create_full ~length
+      let len = [%of_sexp: int] len in
+      create_full ~len
     | _ -> t_of_sexp sexp
 end
 
@@ -930,17 +926,17 @@ module Processed_file = struct
       ; clock_velocity_stddev : Bitset.t
       } [@@deriving sexp]
 
-    let create length =
-      { pos = Bitset.create_full ~length
-      ; clock = Bitset.create_full ~length
-      ; pos_stddev = Bitset.create_full ~length
-      ; clock_stddev = Bitset.create_full ~length
-      ; maneuver = Bitset.create ~length
-      ; clock_event = Bitset.create ~length
-      ; velocity = Bitset.create_full ~length
-      ; clock_velocity = Bitset.create_full ~length
-      ; velocity_stddev = Bitset.create_full ~length
-      ; clock_velocity_stddev = Bitset.create_full ~length
+    let create len =
+      { pos = Bitset.create_full ~len
+      ; clock = Bitset.create_full ~len
+      ; pos_stddev = Bitset.create_full ~len
+      ; clock_stddev = Bitset.create_full ~len
+      ; maneuver = Bitset.create ~len
+      ; clock_event = Bitset.create ~len
+      ; velocity = Bitset.create_full ~len
+      ; clock_velocity = Bitset.create_full ~len
+      ; velocity_stddev = Bitset.create_full ~len
+      ; clock_velocity_stddev = Bitset.create_full ~len
       }
   end
 
@@ -982,37 +978,37 @@ module Processed_file = struct
         (epoch_block : Line.Epoch.t * (Line.Position_and_clock.t * Line.Velocity.t option) list)
       =
       let metadata, records = epoch_block in
-      let length = Array.length space_vehicles in
+      let len = Array.length space_vehicles in
       let velocity = 
         match records with
         | [] -> None
         | (_, (None)) :: _ -> None
         | (_, (Some _)) :: _ ->
           Some
-            { Velocity.x = Float_option.Array.create length
-            ; y = Float_option.Array.create length
-            ; z = Float_option.Array.create length
-            ; clock = Float_option.Array.create length
-            ; x_stddev = Float_option.Array.create length
-            ; y_stddev = Float_option.Array.create length
-            ; z_stddev = Float_option.Array.create length
-            ; clock_stddev = Float_option.Array.create length
+            { Velocity.x = Float_option.Array.create len
+            ; y = Float_option.Array.create len
+            ; z = Float_option.Array.create len
+            ; clock = Float_option.Array.create len
+            ; x_stddev = Float_option.Array.create len
+            ; y_stddev = Float_option.Array.create len
+            ; z_stddev = Float_option.Array.create len
+            ; clock_stddev = Float_option.Array.create len
             }
       in
       let result =
         { metadata
-        ; x = Float_option.Array.create length
-        ; y = Float_option.Array.create length
-        ; z = Float_option.Array.create length
-        ; clock = Float_option.Array.create length
-        ; x_stddev = Float_option.Array.create length
-        ; y_stddev = Float_option.Array.create length
-        ; z_stddev = Float_option.Array.create length
-        ; clock_stddev = Float_option.Array.create length
-        ; maneuver = Bitset.create ~length
-        ; orbit_pred = Bitset.create ~length
-        ; clock_event = Bitset.create ~length
-        ; clock_pred = Bitset.create ~length
+        ; x = Float_option.Array.create len
+        ; y = Float_option.Array.create len
+        ; z = Float_option.Array.create len
+        ; clock = Float_option.Array.create len
+        ; x_stddev = Float_option.Array.create len
+        ; y_stddev = Float_option.Array.create len
+        ; z_stddev = Float_option.Array.create len
+        ; clock_stddev = Float_option.Array.create len
+        ; maneuver = Bitset.create ~len
+        ; orbit_pred = Bitset.create ~len
+        ; clock_event = Bitset.create ~len
+        ; clock_pred = Bitset.create ~len
         ; velocity
         }
       in
@@ -1178,11 +1174,11 @@ module Processed_file = struct
               processed + 1
             )
       in
-      if processed <> length
+      if processed <> len
       then begin
         raise_s
           [%message "expected number of space vehicles not found in epoch block"
-              ~expected:(length : int)
+              ~expected:(len : int)
               ~actual:(processed : int)
               ~epoch:(metadata : Line.Epoch.t)]
       end;
