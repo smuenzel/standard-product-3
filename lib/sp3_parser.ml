@@ -195,11 +195,13 @@ module F = struct
 
   let f w d = Fortran.f_editing ~w ~d
 
-  let f_opt w d =
-    choice
-      [ f w d >>| Option.some
-      ; blank_n w >>| fun () -> None
-      ]
+  (* {[
+       let f_opt w d =
+         choice
+           [ f w d >>| Option.some
+           ; blank_n w >>| fun () -> None
+           ]
+     ]} *)
 
   let a n = take n
 
