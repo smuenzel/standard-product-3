@@ -17,7 +17,7 @@ depends: [
   "core_unix"
   "core"
   "bigdecimal"
-  "float_option"
+  "float_option" {>= "0.0.3"}
   "decompress"
   "ppx_jane"
   "odoc" {with-doc}

@@ -16,11 +16,18 @@
 (documentation https://url/to/documentation)
 
 (package
- (name standard_product_3)
- (synopsis "A parser for the SP3 orbit format")
- (description "A parser for the SP3 orbit format")
- (depends ocaml (fast_bitvector (>= 0.1.2.2)) angstrom core_unix core bigdecimal float_option decompress ppx_jane )
- (tags
-  (sp3 orbit gnss)))
+  (name        standard_product_3)
+  (synopsis    "A parser for the SP3 orbit format")
+  (description "A parser for the SP3 orbit format")
+  (depends ocaml
+    (fast_bitvector (>= 0.1.2.2))
+    angstrom
+    core_unix
+    core
+    bigdecimal
+    (float_option (>= 0.0.3))
+    decompress
+    ppx_jane)
+  (tags (sp3 orbit gnss)))
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/reference/dune-project/index.html
